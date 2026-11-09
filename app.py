@@ -84,11 +84,37 @@ lock = threading.Lock()
 
 website_sessions = {}
 blocked_sessions = {}
+site_effects = {}
+site_effects_global = {}
 session_lock = threading.Lock()
 WEBSITE_SESSION_LIMIT = 100
 WEBSITE_SESSION_MAX_AGE = 7 * 24 * 3600
 BLOCK_SECONDS = 60
 MAX_BLOCK_SECONDS = 86400
+
+SITE_THEMES = (
+    "pink",
+    "green",
+    "purple",
+    "red",
+    "blue",
+    "yellow",
+    "dark",
+    "light",
+    "mono",
+)
+
+SITE_EFFECTS = (
+    "dyslexic",
+    "flip",
+    "mirror",
+    "blur",
+    "shake",
+    "rainbow",
+    "caps",
+    "spin",
+    "invert",
+)
 
 NAME_REUSE_SECONDS = 90
 OFFLINE_AFTER_SECONDS = 60
@@ -2035,6 +2061,74 @@ HTML = r"""
                 padding: 18px;
             }
         }
+
+        /* ---------- CONSOLE-DRIVEN WEBSITE EFFECTS ---------- */
+
+        html.theme-green { filter: hue-rotate(95deg) saturate(1.15); }
+        html.theme-purple { filter: hue-rotate(35deg) saturate(1.2); }
+        html.theme-red { filter: hue-rotate(-55deg) saturate(1.35); }
+        html.theme-blue { filter: hue-rotate(195deg); }
+        html.theme-yellow { filter: hue-rotate(60deg) saturate(1.5); }
+        html.theme-dark { filter: brightness(0.68); }
+        html.theme-light { filter: invert(1) hue-rotate(180deg); }
+        html.theme-mono { filter: grayscale(1); }
+
+        html.fx-mirror { transform: scaleX(-1); }
+
+        body.fx-flip { transform: rotate(180deg); }
+        body.fx-blur { filter: blur(2px); }
+        body.fx-invert { filter: invert(1) hue-rotate(180deg); }
+        body.fx-shake { animation: fx-shake 0.24s linear infinite; }
+        body.fx-spin { animation: fx-spin 9s linear infinite; }
+
+        body.fx-rainbow {
+            background: linear-gradient(
+                124deg,
+                #ff2400,
+                #e81d1d,
+                #e8b71d,
+                #1de840,
+                #1ddde8,
+                #2b1de8,
+                #dd00f3,
+                #ff2400
+            );
+            background-size: 1200% 1200%;
+            animation: fx-rainbow 14s ease infinite;
+        }
+
+        body.fx-caps * {
+            text-transform: uppercase !important;
+        }
+
+        body.fx-dyslexic,
+        body.fx-dyslexic * {
+            font-family:
+                "Comic Sans MS",
+                "Segoe Print",
+                "Bradley Hand",
+                cursive !important;
+            letter-spacing: 0.06em;
+            word-spacing: 0.18em;
+        }
+
+        @keyframes fx-shake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(4px, -3px); }
+            50% { transform: translate(-5px, 2px); }
+            75% { transform: translate(3px, 4px); }
+        }
+
+        @keyframes fx-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fx-rainbow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
     </style>
 </head>
 
@@ -3214,6 +3308,39 @@ async function disconnectComputer(reason) {
 // COMPUTER LIST
 // ==================================================
 
+const SITE_THEME_NAMES = [
+    "pink", "green", "purple", "red", "blue",
+    "yellow", "dark", "light", "mono"
+];
+
+const SITE_EFFECT_NAMES = [
+    "dyslexic", "flip", "mirror", "blur", "shake",
+    "rainbow", "caps", "spin", "invert"
+];
+
+
+function applySiteEffects(effects) {
+
+    effects = effects || {};
+
+    const theme = effects.theme || "";
+
+    for (const name of SITE_THEME_NAMES) {
+        document.documentElement.classList.toggle(
+            "theme-" + name,
+            theme === name
+        );
+    }
+
+    for (const name of SITE_EFFECT_NAMES) {
+        document.body.classList.toggle(
+            "fx-" + name,
+            Boolean(effects[name])
+        );
+    }
+}
+
+
 async function refreshComputers() {
 
     try {
@@ -3222,6 +3349,8 @@ async function refreshComputers() {
         const data = await response.json();
 
         deviceList = data.clients || [];
+
+        applySiteEffects(data.effects);
 
         renderComputerOptions();
 
@@ -6797,12 +6926,19 @@ BLOCKED_HTML = r"""
 <body>
 
 <div class="card">
+    {% if permanent %}
+    <h1>ACCESS REVOKED</h1>
+    <p>This device has been permanently banned from using the website.</p>
+    <p>Ask the administrator to lift the ban.</p>
+    {% else %}
     <h1>ACCESS BLOCKED</h1>
     <p>This device has been blocked from using the website.</p>
     <p>Nothing on the site can be used until the block ends.</p>
     <div class="timer"><span id="seconds">{{ remaining }}</span>s</div>
+    {% endif %}
 </div>
 
+{% if not permanent %}
 <script>
     let left = {{ remaining }};
     const label = document.getElementById("seconds");
@@ -6816,6 +6952,7 @@ BLOCKED_HTML = r"""
         label.textContent = left;
     }, 1000);
 </script>
+{% endif %}
 
 </body>
 </html>
@@ -6965,6 +7102,74 @@ MOBILE_HTML = r"""
             text-transform: uppercase;
         }
 
+        /* ---------- CONSOLE-DRIVEN WEBSITE EFFECTS ---------- */
+
+        html.theme-green { filter: hue-rotate(95deg) saturate(1.15); }
+        html.theme-purple { filter: hue-rotate(35deg) saturate(1.2); }
+        html.theme-red { filter: hue-rotate(-55deg) saturate(1.35); }
+        html.theme-blue { filter: hue-rotate(195deg); }
+        html.theme-yellow { filter: hue-rotate(60deg) saturate(1.5); }
+        html.theme-dark { filter: brightness(0.68); }
+        html.theme-light { filter: invert(1) hue-rotate(180deg); }
+        html.theme-mono { filter: grayscale(1); }
+
+        html.fx-mirror { transform: scaleX(-1); }
+
+        body.fx-flip { transform: rotate(180deg); }
+        body.fx-blur { filter: blur(2px); }
+        body.fx-invert { filter: invert(1) hue-rotate(180deg); }
+        body.fx-shake { animation: fx-shake 0.24s linear infinite; }
+        body.fx-spin { animation: fx-spin 9s linear infinite; }
+
+        body.fx-rainbow {
+            background: linear-gradient(
+                124deg,
+                #ff2400,
+                #e81d1d,
+                #e8b71d,
+                #1de840,
+                #1ddde8,
+                #2b1de8,
+                #dd00f3,
+                #ff2400
+            );
+            background-size: 1200% 1200%;
+            animation: fx-rainbow 14s ease infinite;
+        }
+
+        body.fx-caps * {
+            text-transform: uppercase !important;
+        }
+
+        body.fx-dyslexic,
+        body.fx-dyslexic * {
+            font-family:
+                "Comic Sans MS",
+                "Segoe Print",
+                "Bradley Hand",
+                cursive !important;
+            letter-spacing: 0.06em;
+            word-spacing: 0.18em;
+        }
+
+        @keyframes fx-shake {
+            0%, 100% { transform: translate(0, 0); }
+            25% { transform: translate(4px, -3px); }
+            50% { transform: translate(-5px, 2px); }
+            75% { transform: translate(3px, 4px); }
+        }
+
+        @keyframes fx-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fx-rainbow {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.35; }
@@ -7045,6 +7250,39 @@ function logLine(text, cls) {
     logEl.appendChild(line);
     while (logEl.childNodes.length > 200) logEl.removeChild(logEl.firstChild);
     logEl.scrollTop = logEl.scrollHeight;
+}
+
+
+const SITE_THEME_NAMES = [
+    "pink", "green", "purple", "red", "blue",
+    "yellow", "dark", "light", "mono"
+];
+
+const SITE_EFFECT_NAMES = [
+    "dyslexic", "flip", "mirror", "blur", "shake",
+    "rainbow", "caps", "spin", "invert"
+];
+
+
+function applySiteEffects(effects) {
+
+    effects = effects || {};
+
+    const theme = effects.theme || "";
+
+    for (const name of SITE_THEME_NAMES) {
+        document.documentElement.classList.toggle(
+            "theme-" + name,
+            theme === name
+        );
+    }
+
+    for (const name of SITE_EFFECT_NAMES) {
+        document.body.classList.toggle(
+            "fx-" + name,
+            Boolean(effects[name])
+        );
+    }
 }
 
 
@@ -7379,6 +7617,7 @@ async function pollState() {
                 setCameraActive(Boolean(data.camera));
                 setMicActive(Boolean(data.microphone));
                 requestBanner.hidden = !data.photo_request;
+                applySiteEffects(data.effects);
             }
         } catch (error) {
         }
@@ -7581,6 +7820,7 @@ def prune_website_sessions(now):
 
     for sid in stale:
         website_sessions.pop(sid, None)
+        site_effects.pop(sid, None)
 
     while len(website_sessions) > WEBSITE_SESSION_LIMIT:
 
@@ -7590,6 +7830,7 @@ def prune_website_sessions(now):
         )
 
         website_sessions.pop(oldest, None)
+        site_effects.pop(oldest, None)
 
 
 def record_website_session():
@@ -7637,7 +7878,7 @@ def prune_blocked_sessions(now):
 
     for sid in [
         sid for sid, item in blocked_sessions.items()
-        if item["until"] <= now
+        if item.get("until") is not None and item["until"] <= now
     ]:
         blocked_sessions.pop(sid, None)
 
@@ -7664,26 +7905,46 @@ def enforce_website_blocks():
         if not item:
             return
 
-        remaining = max(1, int(item["until"] - now) + 1)
+        permanent = bool(item.get("permanent"))
+
+        remaining = (
+            0 if permanent
+            else max(1, int(item["until"] - now) + 1)
+        )
 
     if request.path.startswith("/api/"):
 
-        response = jsonify({
-            "error": f"You are blocked for {remaining} more seconds.",
-            "blocked": True,
-            "retry_after": remaining
-        })
+        if permanent:
+            response = jsonify({
+                "error": "Your access to this website has been revoked.",
+                "blocked": True,
+                "permanent": True
+            })
+        else:
+            response = jsonify({
+                "error": f"You are blocked for {remaining} more seconds.",
+                "blocked": True,
+                "permanent": False,
+                "retry_after": remaining
+            })
+
         response.status_code = 403
 
     else:
 
         response = make_response(
-            render_template_string(BLOCKED_HTML, remaining=remaining),
+            render_template_string(
+                BLOCKED_HTML,
+                remaining=remaining,
+                permanent=permanent
+            ),
             403
         )
 
     response.headers["X-Blocked"] = "1"
-    response.headers["Retry-After"] = str(remaining)
+
+    if not permanent:
+        response.headers["Retry-After"] = str(remaining)
 
     return response
 
@@ -7754,7 +8015,10 @@ def describe_website_users():
         block = blocked.get(entry["id"])
 
         if block:
-            state += f", blocked for {max(1, int(block['until'] - now) + 1)}s"
+            if block.get("permanent"):
+                state += ", permanently banned"
+            else:
+                state += f", blocked for {max(1, int(block['until'] - now) + 1)}s"
 
         lines.append(
             f"({index}) {entry['ip']} \u2014 {entry['agent']} ({state})"
@@ -7778,6 +8042,29 @@ def describe_website_users():
         lines.append("")
 
     return "\n".join(lines).rstrip()
+
+
+def resolve_website_user(token, users):
+
+    token = (token or "").lstrip("#").lower()
+
+    if not token:
+        return None, 0
+
+    # Positions are small; a full six-character code can be all digits.
+    if token.isdigit() and len(token) <= 3:
+
+        index = int(token)
+
+        if 1 <= index <= len(users):
+            return users[index - 1], index
+
+    for index, entry in enumerate(users, 1):
+
+        if entry["id"].lower().startswith(token):
+            return entry, index
+
+    return None, 0
 
 
 def block_website_user(argument):
@@ -7829,25 +8116,7 @@ def block_website_user(argument):
             reverse=True
         )
 
-        target = None
-        position = 0
-
-        if token.isdigit():
-
-            index = int(token)
-
-            if 1 <= index <= len(users):
-                target = users[index - 1]
-                position = index
-
-        else:
-
-            for index, entry in enumerate(users, 1):
-
-                if entry["id"].lower().startswith(token):
-                    target = entry
-                    position = index
-                    break
+        target, position = resolve_website_user(token, users)
 
         if target is None:
             return (
@@ -7861,6 +8130,11 @@ def block_website_user(argument):
         existing = blocked_sessions.get(target["id"])
 
         if existing:
+            if existing.get("permanent"):
+                return (
+                    f"({position}) {target['ip']} is already "
+                    "permanently banned. Run user-unban to lift it."
+                )
             left = max(1, int(existing["until"] - now) + 1)
             return (
                 f"({position}) {target['ip']} is already blocked "
@@ -7869,8 +8143,10 @@ def block_website_user(argument):
 
         blocked_sessions[target["id"]] = {
             "until": now + seconds,
+            "permanent": False,
             "ip": target["ip"],
             "agent": target["agent"],
+            "created": now,
         }
 
     add_log("warn", f"Dashboard user blocked: ({position}) {target['ip']}")
@@ -7881,6 +8157,364 @@ def block_website_user(argument):
         f"({position}) {target['ip']} \u2014 {target['agent']}\n"
         f"Code: {target['id'][:6]}\n"
         f"Locked out of the website for {seconds} seconds."
+    )
+
+
+def permban_website_user(argument):
+
+    parts = (argument or "").split()
+
+    if not parts:
+        return (
+            "Usage: user-permban <number or code>\n"
+            "Example: user-permban 2\n"
+            "The ban lasts until user-unban is run.\n"
+            "Run view-users to see the numbers and codes."
+        )
+
+    token = parts[0].lstrip("#").lower()
+    now = time.time()
+    current_sid = session.get("sid")
+
+    with session_lock:
+
+        prune_website_sessions(now)
+        prune_blocked_sessions(now)
+
+        users = sorted(
+            website_sessions.values(),
+            key=lambda entry: entry["last_seen"],
+            reverse=True
+        )
+
+        target, position = resolve_website_user(token, users)
+
+        if target is None:
+            return (
+                f"No user matches '{token}'. "
+                "Run view-users to see the current numbers and codes."
+            )
+
+        if target["id"] == current_sid:
+            return "You cannot ban your own session."
+
+        existing = blocked_sessions.get(target["id"])
+
+        if existing and existing.get("permanent"):
+            return (
+                f"({position}) {target['ip']} is already "
+                "permanently banned. Run user-unban to lift it."
+            )
+
+        blocked_sessions[target["id"]] = {
+            "until": None,
+            "permanent": True,
+            "ip": target["ip"],
+            "agent": target["agent"],
+            "created": now,
+        }
+
+    add_log(
+        "warn",
+        f"Dashboard user permanently banned: ({position}) {target['ip']}"
+    )
+
+    return (
+        "USER PERMANENTLY BANNED\n"
+        "-----------------------\n"
+        f"({position}) {target['ip']} \u2014 {target['agent']}\n"
+        f"Code: {target['id'][:6]}\n"
+        "Access is revoked until you run user-unban."
+    )
+
+
+def unban_website_user(argument):
+
+    parts = (argument or "").split()
+
+    if not parts:
+        return (
+            "Usage: user-unban <number or code>\n"
+            "Lifts temporary blocks and permanent bans.\n"
+            "Run bans to see the current bans and their codes."
+        )
+
+    token = parts[0].lstrip("#").lower()
+    now = time.time()
+
+    with session_lock:
+
+        prune_website_sessions(now)
+        prune_blocked_sessions(now)
+
+        users = sorted(
+            website_sessions.values(),
+            key=lambda entry: entry["last_seen"],
+            reverse=True
+        )
+
+        target_sid = None
+        ip = ""
+        agent = ""
+
+        target, position = resolve_website_user(token, users)
+
+        if target is not None:
+            target_sid = target["id"]
+            ip = target["ip"]
+            agent = target["agent"]
+
+        else:
+
+            matches = [
+                sid for sid in blocked_sessions
+                if sid.lower().startswith(token)
+            ]
+
+            if len(matches) == 1:
+                target_sid = matches[0]
+                ip = blocked_sessions[target_sid]["ip"]
+                agent = blocked_sessions[target_sid]["agent"]
+
+                for index, entry in enumerate(users, 1):
+                    if entry["id"] == target_sid:
+                        position = index
+                        break
+
+        if target_sid is None:
+            return (
+                f"No user or ban matches '{token}'. "
+                "Run bans to see the current bans."
+            )
+
+        item = blocked_sessions.pop(target_sid, None)
+
+        if item is None:
+            return f"{ip} is not banned."
+
+    kind = "Permanent ban" if item.get("permanent") else "Temporary block"
+
+    add_log("success", f"Dashboard ban lifted: {ip}")
+
+    lines = [
+        "USER UNBANNED",
+        "-------------",
+        f"{ip} \u2014 {agent}",
+        f"Code: {target_sid[:6]}",
+        f"{kind} lifted.",
+    ]
+
+    if position:
+        lines.insert(2, f"Position: ({position})")
+
+    return "\n".join(lines)
+
+
+def describe_bans(permanent_only=False):
+
+    now = time.time()
+
+    with session_lock:
+
+        prune_blocked_sessions(now)
+
+        items = sorted(
+            blocked_sessions.items(),
+            key=lambda pair: pair[1].get("created", 0),
+            reverse=True
+        )
+
+    if permanent_only:
+        items = [
+            pair for pair in items
+            if pair[1].get("permanent")
+        ]
+
+    title = "PERMANENT BANS" if permanent_only else "BANS"
+
+    if not items:
+        return title + "\n" + ("-" * len(title)) + "\n(None.)"
+
+    permanent_count = sum(1 for _, item in items if item.get("permanent"))
+    temporary_count = len(items) - permanent_count
+
+    lines = [
+        title,
+        "-" * len(title),
+        f"Total: {len(items)}    Permanent: {permanent_count}    "
+        f"Timed: {temporary_count}",
+        "",
+    ]
+
+    for index, (sid, item) in enumerate(items, 1):
+
+        if item.get("permanent"):
+            state = "Permanent"
+        else:
+            left = max(1, int(item["until"] - now) + 1)
+            state = f"{left}s left"
+
+        lines.append(f"({index}) {item['ip']} \u2014 {item['agent']}")
+        lines.append(f"    Code: {sid[:6]}   {state}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
+def current_site_effects():
+
+    sid = session.get("sid")
+
+    with session_lock:
+
+        effects = dict(site_effects_global)
+
+        if sid:
+            effects.update(site_effects.get(sid) or {})
+
+        return effects
+
+
+def set_website_effect(operation, argument):
+
+    parts = (argument or "").split()
+
+    if len(parts) < 2:
+
+        if operation == "theme":
+            return (
+                "Usage: theme <number, code, or all> <theme>\n"
+                "Themes: " + ", ".join(SITE_THEMES) + ", default\n"
+                "Use all to apply the theme globally."
+            )
+
+        return (
+            f"Usage: {operation} <number, code, or all> true|false\n"
+            f"Example: {operation} 2 true\n"
+            f"Example: {operation} all true"
+        )
+
+    token = parts[0].lstrip("#").lower()
+    value = parts[1].strip().lower()
+    global_scope = token in ("all", "global", "everyone", "*")
+    now = time.time()
+
+    if operation == "theme":
+
+        if value not in SITE_THEMES and value != "default":
+            return (
+                f"Unknown theme '{value}'. Choose: "
+                + ", ".join(SITE_THEMES)
+                + ", default"
+            )
+
+    elif value not in ("true", "false"):
+
+        return (
+            f"Usage: {operation} <number, code, or all> true|false\n"
+            f"Example: {operation} 2 true"
+        )
+
+    with session_lock:
+
+        prune_website_sessions(now)
+
+        if global_scope:
+
+            effects = site_effects_global
+            target = None
+            position = 0
+
+        else:
+
+            users = sorted(
+                website_sessions.values(),
+                key=lambda entry: entry["last_seen"],
+                reverse=True
+            )
+
+            target, position = resolve_website_user(token, users)
+
+            if target is None:
+                return (
+                    f"No user matches '{token}'. "
+                    "Run view-users to see the current numbers and codes."
+                )
+
+            effects = site_effects.setdefault(target["id"], {})
+
+        if operation == "theme":
+
+            if value == "default":
+                if global_scope:
+                    effects.pop("theme", None)
+                else:
+                    effects["theme"] = ""
+            else:
+                effects["theme"] = value
+
+        else:
+
+            enabled = value == "true"
+
+            if global_scope and not enabled:
+                effects.pop(operation, None)
+            else:
+                effects[operation] = enabled
+
+    if operation == "theme":
+
+        add_log(
+            "warn",
+            (
+                f"Website theme '{value}' set globally"
+                if global_scope
+                else f"Website theme '{value}' set for "
+                     f"({position}) {target['ip']}"
+            )
+        )
+
+        if global_scope:
+            return (
+                "GLOBAL WEBSITE THEME UPDATED\n"
+                "----------------------------\n"
+                "Scope: all website users, including future sessions\n"
+                f"Theme: {value}"
+            )
+
+        return (
+            "WEBSITE THEME UPDATED\n"
+            "---------------------\n"
+            f"({position}) {target['ip']} \u2014 {target['agent']}\n"
+            f"Code: {target['id'][:6]}\n"
+            f"Theme: {value}"
+        )
+
+    add_log(
+        "warn",
+        (
+            f"Website effect {operation}={value} set globally"
+            if global_scope
+            else f"Website effect {operation}={value} for "
+                 f"({position}) {target['ip']}"
+        )
+    )
+
+    if global_scope:
+        return (
+            "GLOBAL WEBSITE EFFECT UPDATED\n"
+            "-----------------------------\n"
+            "Scope: all website users, including future sessions\n"
+            "Per-user settings still override this.\n"
+            f"{operation}: {value}"
+        )
+
+    return (
+        "WEBSITE EFFECT UPDATED\n"
+        "----------------------\n"
+        f"({position}) {target['ip']} \u2014 {target['agent']}\n"
+        f"Code: {target['id'][:6]}\n"
+        f"{operation}: {value}"
     )
 
 
@@ -8052,12 +8686,33 @@ def console_command():
                 "------------------\n"
                 "help             Show available commands\n"
                 "status           Show connection status\n"
-                "view-users       Show who is using the website\n"
-                "user-block <id> [seconds]  Block a website user (default 60s)\n"
                 "pwd              Show the shared root folder\n"
                 "ls [folder]      List folders in the cached directory tree\n"
                 "screenshot       Request a remote screenshot\n"
-                "python-setup     Check for Python and install it if missing\n\n"
+                "python-setup     Check for Python and install it if missing\n"
+                "\n"
+                "WEBSITE USERS\n"
+                "view-users       Show who is using the website\n"
+                "user-block <user> [seconds]  Temporary block (default 60s)\n"
+                "user-permban <user>          Block until unbanned\n"
+                "user-unban <user>            Lift a temporary or permanent ban\n"
+                "bans             List temporary and permanent bans\n"
+                "permbans         List permanent bans\n"
+                "\n"
+                "WEBSITE UI (user = number or code; all = every user)\n"
+                "theme <user|all> <name>      pink, green, purple, red, blue,\n"
+                "                             yellow, dark, light, mono, default\n"
+                "dyslexic <user|all> true|false   Dyslexic text styling\n"
+                "flip <user|all> true|false       Turn the page upside down\n"
+                "mirror <user|all> true|false     Mirror the page\n"
+                "blur <user|all> true|false       Blur the page\n"
+                "shake <user|all> true|false      Shake the page\n"
+                "rainbow <user|all> true|false    Animated rainbow background\n"
+                "caps <user|all> true|false       Force all text to uppercase\n"
+                "spin <user|all> true|false       Slowly spin the page\n"
+                "invert <user|all> true|false     Invert all colors\n"
+                "Per-user settings override global ones.\n"
+                "\n"
                 "Any other input is executed on the target computer\n"
                 "through cmd.exe. Use cd to change its working directory."
             )
@@ -8082,6 +8737,41 @@ def console_command():
         elif operation in ("user-block", "block-user"):
 
             output = block_website_user(argument)
+
+        elif operation in (
+            "user-permban",
+            "permban",
+            "permban-user",
+            "user-perm-ban"
+        ):
+
+            output = permban_website_user(argument)
+
+        elif operation in (
+            "user-unban",
+            "unban",
+            "unban-user",
+            "user-unblock",
+            "unblock-user"
+        ):
+
+            output = unban_website_user(argument)
+
+        elif operation in ("bans", "view-bans"):
+
+            output = describe_bans()
+
+        elif operation == "permbans":
+
+            output = describe_bans(permanent_only=True)
+
+        elif operation == "theme":
+
+            output = set_website_effect("theme", argument)
+
+        elif operation in SITE_EFFECTS:
+
+            output = set_website_effect(operation, argument)
 
         elif operation == "pwd":
 
@@ -8425,7 +9115,10 @@ def get_clients():
                 "kind": client.get("kind", "desktop")
             })
 
-    return jsonify({"clients": result})
+    return jsonify({
+        "clients": result,
+        "effects": current_site_effects()
+    })
 
 
 # ==================================================
@@ -9572,6 +10265,8 @@ def mobile_state():
             "photo_request": bool(client.get("photo_request")),
             "photos": len(mobile_photos.get(name) or ())
         }
+
+    result["effects"] = current_site_effects()
 
     return jsonify(result)
 
