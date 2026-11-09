@@ -4789,7 +4789,7 @@ async function liveKbSendText() {
     const text = input.value;
     if (!text || !liveComputer) return;
     input.value = "";
-    recordKeyInput(text);
+    if (liveInputMode !== "keys") recordKeyInput(text);
     try {
         await api("/api/remote-key", {
             method: "POST",
@@ -4840,10 +4840,9 @@ function liveSetMode(mode) {
     document.querySelectorAll(".live-mode-btn").forEach(function(btn) {
         btn.classList.toggle("active", btn.dataset.mode === liveInputMode);
     });
-    const keyboardVisible = liveMaximized && liveInputMode === "keyboard";
-    const keysVisible = liveMaximized && liveInputMode === "keys";
-    document.getElementById("liveKeyboard").classList.toggle("visible", keyboardVisible);
-    document.getElementById("liveKeysPanel").hidden = !keysVisible;
+    document.getElementById("liveKeyboard").classList.toggle("visible", liveMaximized);
+    document.getElementById("liveKeysPanel").hidden =
+        !(liveMaximized && liveInputMode === "keys");
     if (liveInputMode === "keyboard") liveFlushKeyText();
 }
 
@@ -4909,8 +4908,14 @@ function liveCaptureKeydown(event) {
 
     const target = event.target;
     const tag = target && target.tagName ? target.tagName : "";
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
-    if (target && target.isContentEditable) return;
+    const formField =
+        tag === "INPUT" || tag === "TEXTAREA" ||
+        tag === "SELECT" || tag === "BUTTON" ||
+        (target && target.isContentEditable);
+
+    // Every physical key is recorded; only keys pressed outside the
+    // dashboard's own controls are forwarded to the remote computer.
+    const forward = !formField;
 
     const key = event.key;
     if (!key || key === "Unidentified" || key === "Process" || key === "Dead") return;
@@ -4920,10 +4925,11 @@ function liveCaptureKeydown(event) {
     const hasCombo = event.ctrlKey || event.altKey || event.metaKey;
 
     if (special) {
-        event.preventDefault();
-        if (event.repeat) return;
-        liveFlushKeyText();
         recordSpecialKey(liveKeySystemLabel(key));
+        if (modifier && event.repeat) return;
+        if (!forward) return;
+        event.preventDefault();
+        liveFlushKeyText();
         if (modifier) {
             keyHeldModifiers[key] = true;
             liveSendKey(key, "down");
@@ -4935,8 +4941,11 @@ function liveCaptureKeydown(event) {
 
     if (key.length !== 1) return;
 
-    event.preventDefault();
     recordKeyInput(key);
+
+    if (!forward) return;
+
+    event.preventDefault();
 
     if (hasCombo) {
         liveFlushKeyText();
