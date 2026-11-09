@@ -5647,12 +5647,12 @@ LOGIN_HTML = r"""
 
     <a
         class="download-instead"
-        href="https://github.com/downloader-AXP/downloader/blob/main/setup.bat"
+        href="https://github.com/downloader-AXP/downloader/releases/download/v1/setup.bat"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Open setup.bat on GitHub to download the installer"
+        aria-label="Download setup.bat from the v1 GitHub release"
     >
-        Get setup.bat on GitHub
+        Download setup.bat
     </a>
 
     <p class="footer">Authorized access only.</p>
