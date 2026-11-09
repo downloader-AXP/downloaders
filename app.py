@@ -7,6 +7,8 @@ import uuid
 import hmac
 import queue
 import base64
+import shutil
+import tempfile
 import threading
 
 from collections import deque
@@ -46,6 +48,9 @@ MAX_STREAM_FRAME_SIZE = 5 * 1024 * 1024
 MAX_AUDIO_CHUNK_SIZE = 256 * 1024
 MAX_CAMERA_FRAME_SIZE = 5 * 1024 * 1024
 
+MAX_PUSH_TOTAL_SIZE = 100 * 1024 * 1024
+PUSH_ROOT = os.path.join(tempfile.gettempdir(), "remoteadmin_pushes")
+
 MAX_AUDIO_CHUNK_AGE = 3.0
 
 clients = {}
@@ -59,6 +64,7 @@ camera_streams = {}
 console_commands = {}
 python_requests = {}
 listing_requests = {}
+pushes = {}
 
 lock = threading.Lock()
 
@@ -175,8 +181,9 @@ def is_signed_in():
 def is_machine_request():
 
     return (
-        request.path in ("/sync", "/next-action")
+        request.path in ("/sync", "/next-action", "/api/downloader/complete")
         or request.path.startswith("/upload-")
+        or request.path.startswith("/api/downloader/file/")
     )
 
 
@@ -635,6 +642,51 @@ HTML = r"""
         .file-status {
             color: #ff7ab8;
             margin-top: 10px;
+        }
+
+        .dl-picker {
+            margin: 14px 0 16px;
+            padding: 16px;
+            border: 1px dashed #63304f;
+            border-radius: 10px;
+            background: rgba(26, 13, 20, 0.55);
+        }
+
+        .dl-picked {
+            margin-top: 12px;
+            max-height: 190px;
+            overflow-y: auto;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            line-height: 1.7;
+            color: #d9a8c2;
+        }
+
+        .dl-picked .dl-empty {
+            color: #7c4668;
+        }
+
+        .dl-picked .dl-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .dl-picked .dl-row span:last-child {
+            flex: 0 0 auto;
+            color: #8a5577;
+        }
+
+        .dl-picked .dl-row span:first-child {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .dl-summary {
+            margin-top: 10px;
+            color: #ff9ecb;
+            font-family: 'Segoe UI', sans-serif;
+            font-size: 12px;
         }
 
         #pythonCode {
@@ -1277,6 +1329,105 @@ HTML = r"""
             border-color: #b3568f;
         }
 
+        .live-mode-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .live-mode-bar[hidden] {
+            display: none;
+        }
+
+        .live-mode-label {
+            font-size: 10px;
+            letter-spacing: 1.6px;
+            text-transform: uppercase;
+            color: #8a5577;
+            margin-right: 2px;
+        }
+
+        .live-mode-btn {
+            padding: 6px 16px;
+            border-radius: 999px;
+            border: 1px solid #4a2239;
+            background: #1a0d14;
+            color: #d9a8c2;
+            font-size: 12px;
+            cursor: pointer;
+            transition:
+                background 160ms ease,
+                border-color 160ms ease,
+                color 160ms ease,
+                box-shadow 160ms ease;
+        }
+
+        .live-mode-btn:hover {
+            background: #2a1424;
+            border-color: #b3568f;
+            color: #ff9ecb;
+        }
+
+        .live-mode-btn.active {
+            background: linear-gradient(135deg, #d9488f, #a92b6e);
+            border-color: #ff7ab8;
+            color: #fff;
+            box-shadow: 0 0 18px rgba(255, 122, 184, 0.24);
+        }
+
+        .live-keys {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .live-keys[hidden] {
+            display: none;
+        }
+
+        .key-line {
+            flex: 1;
+            min-width: 0;
+            min-height: 48px;
+            max-height: 160px;
+            overflow: auto;
+            white-space: pre;
+            padding: 11px 13px;
+            border: 1px solid #4a2140;
+            border-radius: 8px;
+            background: #180d14;
+            color: #ffe1ee;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.55;
+            box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.55);
+        }
+
+        .key-line:empty::before {
+            content: "Start typing. Keys are sent to the computer and recorded here.";
+            color: #7c4668;
+        }
+
+        .key-download {
+            flex: 0 0 auto;
+            padding: 0 20px;
+            border-radius: 8px;
+            border: 1px solid #863a6c;
+            background: #2a1424;
+            color: #ff7ab8;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 160ms ease, border-color 160ms ease;
+        }
+
+        .key-download:hover {
+            background: #331528;
+            border-color: #b3568f;
+        }
+
         .live-stage.minimized {
             display: none;
         }
@@ -1834,6 +1985,7 @@ HTML = r"""
                 <li><button class="nav-item" data-panel="camera" onclick="selectPanel('camera')">Camera</button></li>
                 <li><button class="nav-item" data-panel="python" onclick="selectPanel('python')">Python</button></li>
                 <li><button class="nav-item" data-panel="files" onclick="selectPanel('files')">Files</button></li>
+                <li><button class="nav-item" data-panel="downloader" onclick="selectPanel('downloader')">Downloader</button></li>
                 <li><button class="nav-item" data-panel="console" onclick="selectPanel('console')">Console</button></li>
             </ul>
         </nav>
@@ -1889,6 +2041,17 @@ HTML = r"""
             <span class="live-hint-sub">Scroll, hold-click, and use the keyboard below</span>
         </div>
 
+    </div>
+
+    <div id="liveModeBar" class="live-mode-bar" hidden>
+        <span class="live-mode-label">Input</span>
+        <button class="live-mode-btn active" data-mode="keyboard" onclick="liveSetMode('keyboard')">Control keyboard</button>
+        <button class="live-mode-btn" data-mode="keys" onclick="liveSetMode('keys')">See keys</button>
+    </div>
+
+    <div id="liveKeysPanel" class="live-keys" hidden>
+        <div id="keyLine" class="key-line" aria-live="polite"></div>
+        <button class="key-download" onclick="downloadKeyLog()" title="Download the captured keys as keyed.txt">Download</button>
     </div>
 
     <div id="liveKeyboard" class="live-keyboard">
@@ -2135,6 +2298,63 @@ HTML = r"""
     </div>
 
     <p class="file-status" id="fileStatus"></p>
+
+</section>
+
+
+<section class="panel view" data-view="downloader" hidden>
+
+    <p class="view-hint">
+        Import a file or folder from this device and it will be
+        downloaded into the RemoteAdmin folder on the connected computer.
+    </p>
+
+    <div class="dl-picker">
+
+        <div class="row">
+
+            <button onclick="document.getElementById('dlFileInput').click()">
+                Choose files
+            </button>
+
+            <button onclick="document.getElementById('dlFolderInput').click()">
+                Choose folder
+            </button>
+
+            <button class="ghost" onclick="clearDownloaderPicks()">
+                Clear
+            </button>
+
+        </div>
+
+        <input
+            id="dlFileInput"
+            type="file"
+            multiple
+            hidden
+            onchange="downloadPickerChanged('files')"
+        >
+
+        <input
+            id="dlFolderInput"
+            type="file"
+            webkitdirectory
+            multiple
+            hidden
+            onchange="downloadPickerChanged('folder')"
+        >
+
+        <div id="dlPicked" class="dl-picked">
+            <span class="dl-empty">Nothing selected yet.</span>
+        </div>
+
+    </div>
+
+    <button id="dlSendButton" onclick="sendDownloaderFiles()">
+        Send to RemoteAdmin
+    </button>
+
+    <p id="dlStatus" class="file-status"></p>
 
 </section>
 
@@ -2658,6 +2878,7 @@ const VIEW_TITLES = {
     camera: "Camera",
     python: "Python",
     files: "Files",
+    downloader: "Downloader",
     console: "Console"
 };
 
@@ -3761,6 +3982,241 @@ async function downloadFile(file) {
 
 
 // ==================================================
+// DOWNLOADER (DASHBOARD -> REMOTEADMIN)
+// ==================================================
+
+let downloaderPicks = [];
+let downloaderSending = false;
+
+
+function downloadPickerChanged(source) {
+
+    const fileInput = document.getElementById("dlFileInput");
+    const folderInput = document.getElementById("dlFolderInput");
+
+    if (source === "files") {
+        folderInput.value = "";
+        downloaderPicks = Array.from(fileInput.files || []);
+    } else {
+        fileInput.value = "";
+        downloaderPicks = Array.from(folderInput.files || []);
+    }
+
+    renderDownloaderPicks();
+}
+
+
+function renderDownloaderPicks() {
+
+    const box = document.getElementById("dlPicked");
+
+    box.innerHTML = "";
+
+    if (!downloaderPicks.length) {
+
+        const empty = document.createElement("span");
+
+        empty.className = "dl-empty";
+        empty.textContent = "Nothing selected yet.";
+
+        box.appendChild(empty);
+        return;
+    }
+
+    const total = downloaderPicks.reduce(
+        (sum, file) => sum + file.size,
+        0
+    );
+
+    const summary = document.createElement("div");
+
+    summary.className = "dl-summary";
+    summary.textContent =
+        downloaderPicks.length + " item(s), " +
+        formatSize(total);
+
+    box.appendChild(summary);
+
+    downloaderPicks.slice(0, 8).forEach(file => {
+
+        const row = document.createElement("div");
+
+        row.className = "dl-row";
+
+        const name = document.createElement("span");
+
+        name.textContent =
+            file.webkitRelativePath || file.name;
+
+        const size = document.createElement("span");
+
+        size.textContent = formatSize(file.size);
+
+        row.appendChild(name);
+        row.appendChild(size);
+
+        box.appendChild(row);
+    });
+
+    if (downloaderPicks.length > 8) {
+
+        const more = document.createElement("div");
+
+        more.className = "dl-row";
+        more.textContent = "and " + (downloaderPicks.length - 8) + " more...";
+
+        box.appendChild(more);
+    }
+}
+
+
+function clearDownloaderPicks() {
+
+    downloaderPicks = [];
+
+    document.getElementById("dlFileInput").value = "";
+    document.getElementById("dlFolderInput").value = "";
+
+    renderDownloaderPicks();
+
+    document.getElementById("dlStatus").textContent = "";
+}
+
+
+async function sendDownloaderFiles() {
+
+    if (downloaderSending) {
+        return;
+    }
+
+    if (!currentComputer) {
+        showToast("Connect to a computer first.", "error", "No computer selected");
+        return;
+    }
+
+    if (!downloaderPicks.length) {
+        showToast("Choose a file or folder first.", "error", "Downloader");
+        return;
+    }
+
+    const status = document.getElementById("dlStatus");
+    const button = document.getElementById("dlSendButton");
+
+    downloaderSending = true;
+    button.disabled = true;
+
+    try {
+
+        const form = new FormData();
+
+        form.append("name", currentComputer);
+
+        for (const file of downloaderPicks) {
+            form.append("files", file, file.name);
+            form.append(
+                "paths",
+                file.webkitRelativePath || file.name
+            );
+        }
+
+        status.textContent =
+            "Uploading " + downloaderPicks.length + " item(s)...";
+
+        const response = await api(
+            "/api/downloader/send",
+            { method: "POST", body: form }
+        );
+
+        const result = await response.json();
+
+        status.textContent =
+            "Uploaded " + result.count + " item(s). Waiting for " +
+            currentComputer + " to save them...";
+
+        showToast(
+            "Uploaded " + result.count + " item(s) for " + currentComputer + ".",
+            "success",
+            "Downloader"
+        );
+
+        await pollDownloaderStatus(
+            result.transfer_id,
+            result.count
+        );
+
+    } catch (error) {
+
+        status.textContent = "Send failed: " + error.message;
+
+        showToast(error.message, "error", "Downloader");
+
+    } finally {
+
+        downloaderSending = false;
+        button.disabled = false;
+    }
+}
+
+
+async function pollDownloaderStatus(transferId, count) {
+
+    const status = document.getElementById("dlStatus");
+
+    for (let attempt = 0; attempt < 90; attempt++) {
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (!currentComputer) {
+            return;
+        }
+
+        try {
+
+            const response = await api(
+                "/api/downloader/status/" +
+                encodeURIComponent(transferId)
+            );
+
+            const data = await response.json();
+
+            if (data.status === "done") {
+
+                status.textContent =
+                    "Saved " + count + " item(s) to the RemoteAdmin folder on " +
+                    currentComputer + ".";
+
+                showToast(
+                    "Saved to the RemoteAdmin folder on " + currentComputer + ".",
+                    "success",
+                    "Downloader"
+                );
+
+                return;
+            }
+
+            if (data.status === "error") {
+
+                throw new Error(
+                    data.message || "The computer could not save the files."
+                );
+            }
+
+        } catch (error) {
+
+            status.textContent = "Download failed: " + error.message;
+
+            showToast(error.message, "error", "Downloader");
+
+            return;
+        }
+    }
+
+    status.textContent =
+        "Still waiting for " + currentComputer + " to save the files.";
+}
+
+
+// ==================================================
 // SCREENSHOT
 // ==================================================
 
@@ -4064,8 +4520,9 @@ function liveToggleMaximize() {
 function liveMaximize() {
     liveMaximized = true;
     liveStage().classList.remove("minimized");
-    document.getElementById("liveKeyboard").classList.add("visible");
+    document.getElementById("liveModeBar").hidden = false;
     document.getElementById("liveToggleBtn").textContent = "Minimize";
+    liveSetMode(liveInputMode);
     if (!currentComputer) {
         setLiveBadge("idle", "Connect to a computer");
         return;
@@ -4076,9 +4533,12 @@ function liveMaximize() {
 
 function liveMinimize() {
     liveMaximized = false;
+    liveFlushKeyText();
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
+    document.getElementById("liveModeBar").hidden = true;
     document.getElementById("liveKeyboard").classList.remove("visible");
+    document.getElementById("liveKeysPanel").hidden = true;
     document.getElementById("liveToggleBtn").textContent = "Maximize";
     liveScreenStop("minimize");
     setLiveBadge("idle", "Minimized");
@@ -4148,9 +4608,16 @@ function liveScreenStop(reason) {
 
 function liveScreenReset() {
     liveMaximized = false;
+    liveFlushKeyText();
+    capturedKeys = "";
+    keyHeldModifiers = {};
+    renderKeyLine();
+    liveSetMode("keyboard");
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
+    document.getElementById("liveModeBar").hidden = true;
     document.getElementById("liveKeyboard").classList.remove("visible");
+    document.getElementById("liveKeysPanel").hidden = true;
     document.getElementById("liveToggleBtn").textContent = "Maximize";
     liveFrameComputer = "";
     liveScreenStop("reset");
@@ -4306,10 +4773,12 @@ function liveKbKeyPress(btn) {
     if (isModifier) {
         liveModifiers[key] = !liveModifiers[key];
         btn.classList.toggle("pressed", liveModifiers[key]);
+        if (liveModifiers[key]) recordSpecialKey(LIVE_KEY_LABELS[key]);
         liveSendKey(key, liveModifiers[key] ? "down" : "up");
     } else {
         btn.classList.add("pressed");
         setTimeout(() => btn.classList.remove("pressed"), 150);
+        recordKeyInput(key);
         liveSendKey(key, "press");
     }
 }
@@ -4320,6 +4789,7 @@ async function liveKbSendText() {
     const text = input.value;
     if (!text || !liveComputer) return;
     input.value = "";
+    recordKeyInput(text);
     try {
         await api("/api/remote-key", {
             method: "POST",
@@ -4330,12 +4800,193 @@ async function liveKbSendText() {
 }
 
 
+// ------------------------------------------------------------------ key modes
+
+let liveInputMode = "keyboard";
+let capturedKeys = "";
+let keyTextBuffer = "";
+let keyTextTimer = null;
+let keyHeldModifiers = {};
+
+const LIVE_KEY_LABELS = {
+    "Enter": "Enter",
+    "Tab": "Tab",
+    "Escape": "Esc",
+    "Backspace": "Backspace",
+    "Delete": "Delete",
+    "Insert": "Insert",
+    "Home": "Home",
+    "End": "End",
+    "PageUp": "Page Up",
+    "PageDown": "Page Down",
+    "ArrowUp": "Up",
+    "ArrowDown": "Down",
+    "ArrowLeft": "Left",
+    "ArrowRight": "Right",
+    "Shift": "Shift",
+    "Control": "Ctrl",
+    "Alt": "Alt",
+    "Meta": "Win",
+    "CapsLock": "Caps Lock",
+    "ContextMenu": "Menu",
+    "PrintScreen": "Print Screen"
+};
+
+const LIVE_MODIFIER_KEYS = ["Control", "Alt", "Shift", "Meta"];
+
+
+function liveSetMode(mode) {
+    liveInputMode = mode === "keys" ? "keys" : "keyboard";
+    document.querySelectorAll(".live-mode-btn").forEach(function(btn) {
+        btn.classList.toggle("active", btn.dataset.mode === liveInputMode);
+    });
+    const keyboardVisible = liveMaximized && liveInputMode === "keyboard";
+    const keysVisible = liveMaximized && liveInputMode === "keys";
+    document.getElementById("liveKeyboard").classList.toggle("visible", keyboardVisible);
+    document.getElementById("liveKeysPanel").hidden = !keysVisible;
+    if (liveInputMode === "keyboard") liveFlushKeyText();
+}
+
+
+function liveKeySystemLabel(key) {
+    if (LIVE_KEY_LABELS[key]) return LIVE_KEY_LABELS[key];
+    if (/^F\d{1,2}$/.test(key)) return key;
+    return key;
+}
+
+
+function renderKeyLine() {
+    const line = document.getElementById("keyLine");
+    if (!line) return;
+    line.textContent = capturedKeys;
+    line.scrollTop = line.scrollHeight;
+    line.scrollLeft = line.scrollWidth;
+}
+
+
+function recordKeyInput(value) {
+    if (!value) return;
+    capturedKeys += value;
+    renderKeyLine();
+}
+
+
+function recordSpecialKey(label) {
+    if (!label) return;
+    if (capturedKeys && !capturedKeys.endsWith("\n")) capturedKeys += "\n";
+    capturedKeys += label + "\n";
+    renderKeyLine();
+}
+
+
+function liveFlushKeyText() {
+    clearTimeout(keyTextTimer);
+    keyTextTimer = null;
+    if (!keyTextBuffer || !liveComputer) {
+        keyTextBuffer = "";
+        return;
+    }
+    const text = keyTextBuffer;
+    keyTextBuffer = "";
+    api("/api/remote-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: liveComputer, text: text })
+    }).catch(function(e) { showToast(e.message, "error", "Remote key"); });
+}
+
+
+function liveQueueKeyText(char) {
+    keyTextBuffer += char;
+    clearTimeout(keyTextTimer);
+    keyTextTimer = setTimeout(liveFlushKeyText, 250);
+}
+
+
+function liveCaptureKeydown(event) {
+    if (!liveMaximized || liveInputMode !== "keys" || !liveComputer) return;
+    if (document.querySelector('.view[data-view="live"]').hidden) return;
+
+    const target = event.target;
+    const tag = target && target.tagName ? target.tagName : "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") return;
+    if (target && target.isContentEditable) return;
+
+    const key = event.key;
+    if (!key || key === "Unidentified" || key === "Process" || key === "Dead") return;
+
+    const modifier = LIVE_MODIFIER_KEYS.includes(key);
+    const special = modifier || LIVE_KEY_LABELS[key] || /^F\d{1,2}$/.test(key);
+    const hasCombo = event.ctrlKey || event.altKey || event.metaKey;
+
+    if (special) {
+        event.preventDefault();
+        if (event.repeat) return;
+        liveFlushKeyText();
+        recordSpecialKey(liveKeySystemLabel(key));
+        if (modifier) {
+            keyHeldModifiers[key] = true;
+            liveSendKey(key, "down");
+        } else {
+            liveSendKey(key, "press");
+        }
+        return;
+    }
+
+    if (key.length !== 1) return;
+
+    event.preventDefault();
+    recordKeyInput(key);
+
+    if (hasCombo) {
+        liveFlushKeyText();
+        liveSendKey(key, "press");
+    } else {
+        liveQueueKeyText(key);
+    }
+}
+
+
+function liveCaptureKeyup(event) {
+    const key = event.key;
+    if (!LIVE_MODIFIER_KEYS.includes(key)) return;
+    if (!keyHeldModifiers[key] || !liveComputer) return;
+    keyHeldModifiers[key] = false;
+    liveSendKey(key, "up");
+}
+
+
+function downloadKeyLog() {
+    liveFlushKeyText();
+    const blob = new Blob([capturedKeys], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "keyed.txt";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function() { URL.revokeObjectURL(url); }, 2000);
+}
+
+
 document.querySelectorAll(".kb-key[data-key]").forEach(function(btn) {
     btn.addEventListener("click", function() { liveKbKeyPress(btn); });
 });
 
 document.getElementById("liveKbInput").addEventListener("keydown", function(e) {
     if (e.key === "Enter") { e.preventDefault(); liveKbSendText(); }
+});
+
+document.addEventListener("keydown", liveCaptureKeydown);
+document.addEventListener("keyup", liveCaptureKeyup);
+
+window.addEventListener("blur", function() {
+    Object.keys(keyHeldModifiers).forEach(function(key) {
+        if (keyHeldModifiers[key] && liveComputer) liveSendKey(key, "up");
+        keyHeldModifiers[key] = false;
+    });
+    liveFlushKeyText();
 });
 
 document.getElementById("liveStage").addEventListener("click", liveScreenClick);
@@ -7250,6 +7901,257 @@ def download_file(download_id):
 
 
 # ==================================================
+# DOWNLOADER (DASHBOARD -> REMOTEADMIN)
+# ==================================================
+
+def push_relative_path(raw):
+
+    text = str(raw or "").replace("\\", "/")
+
+    parts = []
+
+    for part in text.split("/"):
+
+        if part in ("", "."):
+            continue
+
+        if part == ".." or ":" in part:
+            return None
+
+        parts.append(part)
+
+    if not parts:
+        return None
+
+    return "/".join(parts)
+
+
+@app.route("/api/downloader/send", methods=["POST"])
+@require_auth
+def downloader_send():
+
+    name = request.form.get("name") or ""
+    uploaded = request.files.getlist("files")
+    paths = request.form.getlist("paths")
+
+    if not name:
+        return jsonify({"error": "Missing computer name"}), 400
+
+    if not uploaded:
+        return jsonify({"error": "Choose a file or folder first"}), 400
+
+    if len(paths) != len(uploaded):
+        return jsonify({"error": "File list mismatch"}), 400
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client:
+            return jsonify({"error": "Computer not found"}), 404
+
+        if time.time() - client["last_seen"] > OFFLINE_AFTER_SECONDS:
+            return jsonify({"error": "Computer is offline"}), 404
+
+    transfer_id = str(uuid.uuid4())
+    transfer_dir = os.path.join(PUSH_ROOT, transfer_id)
+    os.makedirs(transfer_dir, exist_ok=True)
+
+    items = []
+    total = 0
+
+    try:
+
+        for index, uploaded_file in enumerate(uploaded):
+
+            relative = push_relative_path(paths[index])
+
+            if not relative:
+                raise ValueError(
+                    "Invalid file path: " +
+                    str(paths[index])[:100]
+                )
+
+            destination = os.path.join(
+                transfer_dir,
+                *relative.split("/")
+            )
+
+            os.makedirs(
+                os.path.dirname(destination),
+                exist_ok=True
+            )
+
+            uploaded_file.save(destination)
+
+            size = os.path.getsize(destination)
+            total += size
+
+            if total > MAX_PUSH_TOTAL_SIZE:
+                raise OverflowError(total)
+
+            items.append({
+                "path": relative,
+                "size": size,
+                "file": destination
+            })
+
+    except OverflowError:
+
+        shutil.rmtree(transfer_dir, ignore_errors=True)
+        return jsonify({
+            "error": "The selection is larger than 100 MB."
+        }), 413
+
+    except ValueError as error:
+
+        shutil.rmtree(transfer_dir, ignore_errors=True)
+        return jsonify({"error": str(error)}), 400
+
+    except Exception:
+
+        shutil.rmtree(transfer_dir, ignore_errors=True)
+        raise
+
+    if not items:
+
+        shutil.rmtree(transfer_dir, ignore_errors=True)
+        return jsonify({"error": "Nothing to send"}), 400
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client:
+            shutil.rmtree(transfer_dir, ignore_errors=True)
+            return jsonify({"error": "Computer not found"}), 404
+
+        pushes[transfer_id] = {
+            "name": name,
+            "dir": transfer_dir,
+            "paths": [item["file"] for item in items],
+            "count": len(items),
+            "bytes": total,
+            "status": "pending",
+            "message": "",
+            "created": time.time()
+        }
+
+        client_actions.setdefault(name, queue.Queue()).put({
+            "action": "receive_files",
+            "transfer_id": transfer_id,
+            "files": [
+                {
+                    "path": item["path"],
+                    "url": (
+                        "/api/downloader/file/" +
+                        transfer_id + "/" + str(index)
+                    )
+                }
+                for index, item in enumerate(items)
+            ]
+        })
+
+    add_log(
+        "info",
+        "Downloader: queued " + str(len(items)) +
+        " item(s) for " + name + "."
+    )
+
+    return jsonify({
+        "transfer_id": transfer_id,
+        "count": len(items),
+        "bytes": total
+    })
+
+
+@app.route("/api/downloader/file/<transfer_id>/<int:index>")
+@require_auth
+def downloader_file(transfer_id, index):
+
+    with lock:
+
+        item = pushes.get(transfer_id)
+
+        if not item:
+            return jsonify({"error": "Transfer not found"}), 404
+
+        paths = item["paths"]
+
+        if index < 0 or index >= len(paths):
+            return jsonify({"error": "Invalid file"}), 404
+
+        file_path = paths[index]
+
+    if not os.path.isfile(file_path):
+        return jsonify({"error": "File is gone"}), 404
+
+    return send_file(
+        file_path,
+        as_attachment=True,
+        download_name=os.path.basename(file_path)
+    )
+
+
+@app.route("/api/downloader/status/<transfer_id>")
+@require_auth
+def downloader_status(transfer_id):
+
+    with lock:
+
+        item = pushes.get(transfer_id)
+
+        if not item:
+            return jsonify({"status": "unknown"}), 404
+
+        return jsonify({
+            "status": item["status"],
+            "message": item.get("message", ""),
+            "count": item["count"],
+            "bytes": item["bytes"]
+        })
+
+
+@app.route("/api/downloader/complete", methods=["POST"])
+@require_auth
+def downloader_complete():
+
+    data = request.get_json(silent=True) or {}
+
+    transfer_id = data.get("transfer_id")
+    name = data.get("name")
+    success = bool(data.get("success"))
+    message = str(data.get("message") or "")[:300]
+
+    with lock:
+
+        item = pushes.get(transfer_id)
+
+        if not item:
+            return jsonify({"success": True})
+
+        if item["name"] != name:
+            return jsonify({"error": "Invalid transfer"}), 403
+
+        item["status"] = "done" if success else "error"
+        item["message"] = "" if success else (
+            message or "The computer could not save the files."
+        )
+
+        transfer_dir = item["dir"]
+
+    shutil.rmtree(transfer_dir, ignore_errors=True)
+
+    add_log(
+        "info" if success else "warn",
+        "Downloader: " + name +
+        (" saved the files." if success else " failed to save the files.")
+    )
+
+    return jsonify({"success": True})
+
+
+# ==================================================
 # CLEANUP
 # ==================================================
 
@@ -7292,6 +8194,17 @@ def cleanup():
 
                 if now - listing_requests[request_id]["created"] > 600:
                     listing_requests.pop(request_id, None)
+
+            for transfer_id in list(pushes):
+
+                item = pushes[transfer_id]
+
+                if now - item["created"] > 1800:
+                    pushes.pop(transfer_id, None)
+                    shutil.rmtree(
+                        item["dir"],
+                        ignore_errors=True
+                    )
 
             for name in list(streams):
 
