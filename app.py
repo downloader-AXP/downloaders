@@ -399,15 +399,15 @@ HTML = r"""
         body {
             margin: 0;
             padding: 25px;
-            background: #101410;
-            color: #c8e6c9;
+            background: #160d13;
+            color: #f7dbe8;
             font-family: Consolas, monospace;
         }
 
         h1 {
-            color: #8bcf8b;
+            color: #ff9ecb;
             letter-spacing: 1px;
-            border-bottom: 1px solid #385b38;
+            border-bottom: 1px solid #63304f;
             padding-bottom: 15px;
             margin-bottom: 25px;
         }
@@ -417,7 +417,7 @@ HTML = r"""
             align-items: center;
             justify-content: space-between;
             gap: 16px;
-            border-bottom: 1px solid #385b38;
+            border-bottom: 1px solid #63304f;
             padding-bottom: 15px;
             margin-bottom: 25px;
         }
@@ -431,9 +431,9 @@ HTML = r"""
         .signout {
             flex: 0 0 auto;
             padding: 6px 12px;
-            border: 1px solid #2c452c;
+            border: 1px solid #4a2140;
             border-radius: 6px;
-            color: #789078;
+            color: #b98fa8;
             font-size: 11px;
             letter-spacing: 0.8px;
             text-transform: uppercase;
@@ -445,24 +445,24 @@ HTML = r"""
         }
 
         .signout:hover {
-            color: #c8e6c9;
-            border-color: #477d47;
-            background: #1d2b1d;
+            color: #f7dbe8;
+            border-color: #d9488f;
+            background: #3a1a30;
         }
 
         h2 {
-            color: #8bcf8b;
+            color: #ff9ecb;
             font-size: 20px;
         }
 
         h3 {
-            color: #8bcf8b;
+            color: #ff9ecb;
             margin-bottom: 10px;
         }
 
         .panel {
-            background: #050805;
-            border: 1px solid #385b38;
+            background: #180d14;
+            border: 1px solid #63304f;
             padding: 20px;
             border-radius: 8px;
             margin-bottom: 20px;
@@ -470,21 +470,21 @@ HTML = r"""
         }
 
         input, select, textarea {
-            background: #101810;
-            color: #c8e6c9;
-            border: 1px solid #385b38;
+            background: #241320;
+            color: #f7dbe8;
+            border: 1px solid #63304f;
             padding: 11px;
             border-radius: 4px;
             font-family: Consolas, monospace;
         }
 
         select option {
-            background: #101810;
-            color: #c8e6c9;
+            background: #241320;
+            color: #f7dbe8;
         }
 
         button {
-            background: #315d31;
+            background: #c93b86;
             color: white;
             border: none;
             padding: 10px 15px;
@@ -494,7 +494,7 @@ HTML = r"""
         }
 
         button:hover {
-            background: #477d47;
+            background: #d9488f;
         }
 
         button:disabled {
@@ -515,8 +515,8 @@ HTML = r"""
         }
 
         .output {
-            background: #0a0f0a;
-            border: 1px solid #2c452c;
+            background: #120a10;
+            border: 1px solid #4a2140;
             padding: 15px;
             border-radius: 6px;
             margin-top: 12px;
@@ -536,8 +536,8 @@ HTML = r"""
             gap: 10px;
             padding: 10px;
             margin-bottom: 7px;
-            background: #0d160d;
-            border: 1px solid #2c452c;
+            background: #241220;
+            border: 1px solid #4a2140;
             border-radius: 5px;
         }
 
@@ -548,22 +548,22 @@ HTML = r"""
 
         .folder-button {
             background: transparent;
-            color: #7ee787;
+            color: #ff7ab8;
             text-align: left;
             font-size: 14px;
             padding: 7px;
         }
 
         .folder-button:hover {
-            background: #1d2b1d;
+            background: #3a1a30;
         }
 
         .muted {
-            color: #789078;
+            color: #b98fa8;
         }
 
         .status {
-            color: #8bcf8b;
+            color: #ff9ecb;
         }
 
         #screenshot {
@@ -573,8 +573,8 @@ HTML = r"""
             height: auto;
             margin-top: 15px;
             border-radius: 6px;
-            border: 1px solid #385b38;
-            background: #050805;
+            border: 1px solid #63304f;
+            background: #180d14;
         }
 
         #streamImage {
@@ -584,8 +584,8 @@ HTML = r"""
             height: auto;
             margin-top: 15px;
             border-radius: 6px;
-            border: 1px solid #385b38;
-            background: #050805;
+            border: 1px solid #63304f;
+            background: #180d14;
         }
 
         #cameraImage {
@@ -595,15 +595,15 @@ HTML = r"""
             height: auto;
             margin-top: 15px;
             border-radius: 6px;
-            border: 1px solid #385b38;
-            background: #050805;
+            border: 1px solid #63304f;
+            background: #180d14;
         }
 
         .level-track {
             margin-top: 12px;
             height: 10px;
-            background: #0a0f0a;
-            border: 1px solid #2c452c;
+            background: #120a10;
+            border: 1px solid #4a2140;
             border-radius: 5px;
             overflow: hidden;
         }
@@ -611,7 +611,7 @@ HTML = r"""
         .level-fill {
             height: 100%;
             width: 0;
-            background: #477d47;
+            background: #d9488f;
             transition: width 120ms linear;
         }
 
@@ -633,7 +633,7 @@ HTML = r"""
         }
 
         .file-status {
-            color: #7ee787;
+            color: #ff7ab8;
             margin-top: 10px;
         }
 
@@ -642,9 +642,9 @@ HTML = r"""
             width: 100%;
             min-height: 220px;
             resize: vertical;
-            background: #050805;
-            color: #c8e6c9;
-            border: 1px solid #385b38;
+            background: #180d14;
+            color: #f7dbe8;
+            border: 1px solid #63304f;
             border-radius: 6px;
             padding: 12px;
             font-family: Consolas, monospace;
@@ -669,7 +669,7 @@ HTML = r"""
 
         button:hover {
             transform: translateY(-1px);
-            box-shadow: 0 6px 18px rgba(71, 125, 71, 0.28);
+            box-shadow: 0 6px 18px rgba(217, 72, 143, 0.28);
         }
 
         button:active {
@@ -680,8 +680,8 @@ HTML = r"""
         select:focus,
         textarea:focus {
             outline: none;
-            border-color: #6ba36b;
-            box-shadow: 0 0 0 3px rgba(71, 125, 71, 0.22);
+            border-color: #ff77b9;
+            box-shadow: 0 0 0 3px rgba(217, 72, 143, 0.22);
         }
 
         .panel {
@@ -692,10 +692,10 @@ HTML = r"""
         }
 
         .panel:hover {
-            border-color: #446b44;
+            border-color: #a03a78;
             box-shadow:
                 0 0 20px #000,
-                0 0 28px rgba(71, 125, 71, 0.12);
+                0 0 28px rgba(217, 72, 143, 0.12);
         }
 
         .panel:nth-of-type(2) { animation-delay: 40ms; }
@@ -722,17 +722,17 @@ HTML = r"""
         }
 
         ::-webkit-scrollbar-track {
-            background: #0a0f0a;
+            background: #120a10;
         }
 
         ::-webkit-scrollbar-thumb {
-            background: #2c452c;
+            background: #4a2140;
             border-radius: 6px;
-            border: 2px solid #0a0f0a;
+            border: 2px solid #120a10;
         }
 
         ::-webkit-scrollbar-thumb:hover {
-            background: #477d47;
+            background: #d9488f;
         }
 
         /* ---------- TOASTS ---------- */
@@ -754,9 +754,9 @@ HTML = r"""
             width: 340px;
             max-width: calc(100vw - 36px);
             padding: 12px 38px 13px 15px;
-            background: rgba(5, 9, 5, 0.96);
-            border: 1px solid #2c452c;
-            border-left: 3px solid #477d47;
+            background: rgba(24, 13, 20, 0.96);
+            border: 1px solid #4a2140;
+            border-left: 3px solid #d9488f;
             border-radius: 10px;
             box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
             backdrop-filter: blur(12px);
@@ -771,13 +771,13 @@ HTML = r"""
         .toast:hover {
             box-shadow:
                 0 16px 40px rgba(0, 0, 0, 0.7),
-                0 0 22px rgba(71, 125, 71, 0.18);
+                0 0 22px rgba(217, 72, 143, 0.18);
         }
 
-        .toast.info    { border-left-color: #7fbf7f; }
-        .toast.success { border-left-color: #7ee787; }
-        .toast.warn    { border-left-color: #e5b454; }
-        .toast.error   { border-left-color: #ff6b6b; }
+        .toast.info    { border-left-color: #ffa8d4; }
+        .toast.success { border-left-color: #ff7ab8; }
+        .toast.warn    { border-left-color: #f2b05e; }
+        .toast.error   { border-left-color: #ff5f7e; }
 
         .toast.leaving {
             animation: toast-out 260ms ease forwards;
@@ -787,17 +787,17 @@ HTML = r"""
             font-size: 11px;
             letter-spacing: 1.2px;
             text-transform: uppercase;
-            color: #7ee787;
+            color: #ff7ab8;
             margin-bottom: 4px;
         }
 
-        .toast.warn .toast-title  { color: #e5b454; }
-        .toast.error .toast-title { color: #ff8080; }
+        .toast.warn .toast-title  { color: #f2b05e; }
+        .toast.error .toast-title { color: #ff8a9a; }
 
         .toast-message {
             font-size: 13px;
             line-height: 1.45;
-            color: #d9efd9;
+            color: #fbe4ef;
             overflow-wrap: anywhere;
         }
 
@@ -806,7 +806,7 @@ HTML = r"""
             top: 6px;
             right: 7px;
             background: transparent;
-            color: #789078;
+            color: #b98fa8;
             font-size: 17px;
             line-height: 1;
             padding: 4px 6px;
@@ -815,8 +815,8 @@ HTML = r"""
         }
 
         .toast-close:hover {
-            color: #c8e6c9;
-            background: #1d2b1d;
+            color: #f7dbe8;
+            background: #3a1a30;
             transform: none;
             box-shadow: none;
         }
@@ -831,10 +831,10 @@ HTML = r"""
             transform-origin: left;
         }
 
-        .toast.info    .toast-progress { color: #7fbf7f; }
-        .toast.success .toast-progress { color: #7ee787; }
-        .toast.warn    .toast-progress { color: #e5b454; }
-        .toast.error   .toast-progress { color: #ff6b6b; }
+        .toast.info    .toast-progress { color: #ffa8d4; }
+        .toast.success .toast-progress { color: #ff7ab8; }
+        .toast.warn    .toast-progress { color: #f2b05e; }
+        .toast.error   .toast-progress { color: #ff5f7e; }
 
         @keyframes toast-in {
             to {
@@ -870,10 +870,10 @@ HTML = r"""
             align-items: center;
             gap: 8px;
             padding: 9px 16px;
-            background: rgba(8, 13, 8, 0.94);
-            border: 1px solid #385b38;
+            background: rgba(30, 16, 25, 0.94);
+            border: 1px solid #63304f;
             border-radius: 999px;
-            color: #c8e6c9;
+            color: #f7dbe8;
             font-size: 13px;
             backdrop-filter: blur(12px);
             box-shadow: 0 10px 26px rgba(0, 0, 0, 0.55);
@@ -883,8 +883,8 @@ HTML = r"""
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #7ee787;
-            box-shadow: 0 0 10px #7ee787;
+            background: #ff7ab8;
+            box-shadow: 0 0 10px #ff7ab8;
             animation: log-pulse 2.2s ease-in-out infinite;
         }
 
@@ -892,16 +892,16 @@ HTML = r"""
             min-width: 20px;
             padding: 1px 6px;
             border-radius: 999px;
-            background: #477d47;
-            color: #050805;
+            background: #d9488f;
+            color: #180d14;
             font-size: 11px;
             font-weight: bold;
             text-align: center;
         }
 
         .log-count.error {
-            background: #ff6b6b;
-            color: #1a0505;
+            background: #ff5f7e;
+            color: #2b0b16;
         }
 
         @keyframes log-pulse {
@@ -920,8 +920,8 @@ HTML = r"""
             max-width: calc(100vw - 36px);
             height: 360px;
             max-height: calc(100vh - 130px);
-            background: rgba(5, 9, 5, 0.97);
-            border: 1px solid #385b38;
+            background: rgba(24, 13, 20, 0.97);
+            border: 1px solid #63304f;
             border-radius: 12px;
             box-shadow: 0 24px 70px rgba(0, 0, 0, 0.75);
             backdrop-filter: blur(14px);
@@ -945,7 +945,7 @@ HTML = r"""
             justify-content: space-between;
             gap: 10px;
             padding: 12px 14px;
-            border-bottom: 1px solid #2c452c;
+            border-bottom: 1px solid #4a2140;
         }
 
         .log-title {
@@ -955,15 +955,15 @@ HTML = r"""
             font-size: 13px;
             letter-spacing: 1px;
             text-transform: uppercase;
-            color: #8bcf8b;
+            color: #ff9ecb;
         }
 
         .log-title .log-dot {
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: #7ee787;
-            box-shadow: 0 0 9px #7ee787;
+            background: #ff7ab8;
+            box-shadow: 0 0 9px #ff7ab8;
             animation: log-pulse 2.2s ease-in-out infinite;
         }
 
@@ -974,16 +974,16 @@ HTML = r"""
 
         .log-action {
             background: transparent;
-            border: 1px solid #2c452c;
-            color: #9fbf9f;
+            border: 1px solid #4a2140;
+            color: #cf9dba;
             font-size: 12px;
             padding: 4px 10px;
             border-radius: 6px;
         }
 
         .log-action:hover {
-            background: #1d2b1d;
-            color: #c8e6c9;
+            background: #3a1a30;
+            color: #f7dbe8;
             transform: none;
             box-shadow: none;
         }
@@ -1006,7 +1006,7 @@ HTML = r"""
             gap: 9px;
             align-items: baseline;
             padding: 6px 2px;
-            border-bottom: 1px solid rgba(56, 91, 56, 0.22);
+            border-bottom: 1px solid rgba(99, 48, 79, 0.22);
             animation: log-in 260ms ease both;
         }
 
@@ -1027,7 +1027,7 @@ HTML = r"""
 
         .log-time {
             flex: 0 0 auto;
-            color: #567356;
+            color: #8a5577;
             font-variant-numeric: tabular-nums;
         }
 
@@ -1036,24 +1036,24 @@ HTML = r"""
             font-size: 10px;
             letter-spacing: 0.6px;
             text-transform: uppercase;
-            color: #7fbf7f;
+            color: #ffa8d4;
         }
 
-        .log-entry.warn .log-level  { color: #e5b454; }
-        .log-entry.error .log-level { color: #ff8080; }
-        .log-entry.success .log-level { color: #7ee787; }
+        .log-entry.warn .log-level  { color: #f2b05e; }
+        .log-entry.error .log-level { color: #ff8a9a; }
+        .log-entry.success .log-level { color: #ff7ab8; }
 
-        .log-entry.error .log-message { color: #ffc9c9; }
+        .log-entry.error .log-message { color: #ffd1e4; }
 
         .log-message {
             flex: 1;
-            color: #c8e6c9;
+            color: #f7dbe8;
             overflow-wrap: anywhere;
             line-height: 1.4;
         }
 
         .log-empty {
-            color: #567356;
+            color: #8a5577;
             text-align: center;
             padding: 30px 0;
         }
@@ -1079,9 +1079,9 @@ HTML = r"""
             gap: 8px;
             padding: 5px 12px;
             border-radius: 999px;
-            border: 1px solid #2c452c;
-            background: #0a0f0a;
-            color: #789078;
+            border: 1px solid #4a2140;
+            background: #120a10;
+            color: #b98fa8;
             font-family: Consolas, monospace;
             font-size: 12px;
             transition:
@@ -1094,32 +1094,32 @@ HTML = r"""
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: #3d563d;
+            background: #6b3157;
             transition:
                 background 220ms ease,
                 box-shadow 220ms ease;
         }
 
         .live-badge.busy {
-            color: #e5b454;
-            border-color: #6a5320;
+            color: #f2b05e;
+            border-color: #7a4a2c;
         }
 
         .live-badge.busy .dot {
-            background: #e5b454;
-            box-shadow: 0 0 9px #e5b454;
+            background: #f2b05e;
+            box-shadow: 0 0 9px #f2b05e;
             animation: log-pulse 1s ease-in-out infinite;
         }
 
         .live-badge.live {
-            color: #7ee787;
-            border-color: #477d47;
-            box-shadow: 0 0 16px rgba(126, 231, 135, 0.18);
+            color: #ff7ab8;
+            border-color: #d9488f;
+            box-shadow: 0 0 16px rgba(255, 122, 184, 0.18);
         }
 
         .live-badge.live .dot {
-            background: #7ee787;
-            box-shadow: 0 0 9px #7ee787;
+            background: #ff7ab8;
+            box-shadow: 0 0 9px #ff7ab8;
             animation: log-pulse 1.8s ease-in-out infinite;
         }
 
@@ -1129,16 +1129,16 @@ HTML = r"""
             aspect-ratio: 16 / 9;
             min-height: 240px;
             max-height: 64vh;
-            border: 1px solid #243a24;
+            border: 1px solid #3e1c34;
             border-radius: 10px;
             overflow: hidden;
             background:
                 radial-gradient(
                     120% 120% at 50% 0%,
-                    #0b140b 0%,
-                    #050805 62%
+                    #1d0f18 0%,
+                    #180d14 62%
                 ),
-                #050805;
+                #180d14;
             cursor: crosshair;
             user-select: none;
             transition:
@@ -1147,10 +1147,10 @@ HTML = r"""
         }
 
         .live-stage.visible {
-            border-color: #4c7a4c;
+            border-color: #a84b86;
             box-shadow:
-                0 0 0 1px rgba(126, 231, 135, 0.08),
-                0 0 34px rgba(71, 125, 71, 0.22),
+                0 0 0 1px rgba(255, 122, 184, 0.08),
+                0 0 34px rgba(217, 72, 143, 0.22),
                 inset 0 0 60px rgba(0, 0, 0, 0.55);
         }
 
@@ -1185,8 +1185,8 @@ HTML = r"""
             background: linear-gradient(
                 to bottom,
                 transparent 0%,
-                rgba(126, 231, 135, 0.05) 48%,
-                rgba(126, 231, 135, 0.11) 50%,
+                rgba(255, 122, 184, 0.05) 48%,
+                rgba(255, 122, 184, 0.11) 50%,
                 transparent 52%
             );
             background-size: 100% 220%;
@@ -1215,20 +1215,20 @@ HTML = r"""
             padding: 20px;
             text-align: center;
             pointer-events: none;
-            color: #6d8a6d;
+            color: #a9738f;
             font-size: 14px;
             letter-spacing: 0.3px;
             background: radial-gradient(
                 60% 60% at 50% 50%,
-                rgba(9, 16, 9, 0.55),
-                rgba(5, 8, 5, 0) 75%
+                rgba(24, 12, 18, 0.55),
+                rgba(24, 13, 20, 0) 75%
             );
             transition: opacity 320ms ease;
         }
 
         .live-hint-sub {
             font-size: 12px;
-            color: #4f6b4f;
+            color: #7c4668;
         }
 
         .live-stage.has-frame .live-hint {
@@ -1241,8 +1241,8 @@ HTML = r"""
             height: 14px;
             margin: -7px 0 0 -7px;
             border-radius: 50%;
-            border: 2px solid #7ee787;
-            box-shadow: 0 0 16px rgba(126, 231, 135, 0.75);
+            border: 2px solid #ff7ab8;
+            box-shadow: 0 0 16px rgba(255, 122, 184, 0.75);
             pointer-events: none;
             animation: live-ping 520ms ease-out forwards;
         }
@@ -1264,17 +1264,17 @@ HTML = r"""
             padding: 5px 14px;
             font-size: 12px;
             border-radius: 6px;
-            border: 1px solid #3a5a3a;
-            background: #0d1a0d;
-            color: #7ee787;
+            border: 1px solid #863a6c;
+            background: #2a1424;
+            color: #ff7ab8;
             cursor: pointer;
             transition: background 160ms ease, border-color 160ms ease;
             white-space: nowrap;
         }
 
         .live-toggle-btn:hover {
-            background: #162a16;
-            border-color: #5a8a5a;
+            background: #331528;
+            border-color: #b3568f;
         }
 
         .live-stage.minimized {
@@ -1284,9 +1284,9 @@ HTML = r"""
         .live-keyboard {
             display: none;
             margin-top: 10px;
-            border: 1px solid #243a24;
+            border: 1px solid #3e1c34;
             border-radius: 8px;
-            background: #080e08;
+            background: #1a0d14;
             padding: 10px 12px;
         }
 
@@ -1310,9 +1310,9 @@ HTML = r"""
             height: 32px;
             padding: 0 7px;
             border-radius: 5px;
-            border: 1px solid #2e4a2e;
-            background: #0d1a0d;
-            color: #a8c8a8;
+            border: 1px solid #4a2239;
+            background: #2a1424;
+            color: #d9a8c2;
             font-family: Consolas, monospace;
             font-size: 12px;
             cursor: pointer;
@@ -1321,15 +1321,15 @@ HTML = r"""
         }
 
         .kb-key:hover {
-            background: #1a2e1a;
-            color: #7ee787;
-            border-color: #4a7a4a;
+            background: #35172b;
+            color: #ff7ab8;
+            border-color: #c94e8c;
         }
 
         .kb-key:active, .kb-key.pressed {
-            background: #2a4a2a;
-            color: #7ee787;
-            border-color: #7ee787;
+            background: #4e2340;
+            color: #ff7ab8;
+            border-color: #ff7ab8;
         }
 
         .kb-key.wide { min-width: 60px; }
@@ -1345,10 +1345,10 @@ HTML = r"""
 
         .live-kb-input-row input {
             flex: 1;
-            background: #050805;
-            border: 1px solid #2c452c;
+            background: #180d14;
+            border: 1px solid #4a2140;
             border-radius: 5px;
-            color: #c8e8c8;
+            color: #ffe1ee;
             font-family: Consolas, monospace;
             font-size: 13px;
             padding: 5px 10px;
@@ -1356,20 +1356,20 @@ HTML = r"""
         }
 
         .live-kb-input-row input:focus {
-            border-color: #4a7a4a;
+            border-color: #c94e8c;
         }
 
         .live-kb-hint {
             font-size: 11px;
-            color: #4f6b4f;
+            color: #7c4668;
             margin-top: 6px;
         }
 
         /* ---------- REMOTE CONSOLE ---------- */
 
         .console-screen {
-            background: #050805;
-            border: 1px solid #2c452c;
+            background: #180d14;
+            border: 1px solid #4a2140;
             border-radius: 6px;
             padding: 14px 16px;
             height: 300px;
@@ -1384,7 +1384,7 @@ HTML = r"""
         }
 
         .console-screen:focus-within {
-            border-color: #477d47;
+            border-color: #d9488f;
         }
 
         .console-line {
@@ -1392,19 +1392,19 @@ HTML = r"""
         }
 
         .console-echo {
-            color: #7ee787;
+            color: #ff7ab8;
         }
 
         .console-out {
-            color: #c8e6c9;
+            color: #f7dbe8;
         }
 
         .console-err {
-            color: #ff8080;
+            color: #ff8a9a;
         }
 
         .console-muted {
-            color: #567356;
+            color: #8a5577;
         }
 
         @keyframes console-in {
@@ -1426,7 +1426,7 @@ HTML = r"""
         }
 
         .console-prompt {
-            color: #7ee787;
+            color: #ff7ab8;
             font-family: Consolas, monospace;
             font-size: 13px;
             white-space: nowrap;
@@ -1435,23 +1435,436 @@ HTML = r"""
         #consoleInput {
             flex: 1;
             min-width: 0;
-            background: #050805;
+            background: #180d14;
+        }
+
+        /* ---------- APP SHELL ---------- */
+
+        body {
+            padding: 0;
+            background:
+                radial-gradient(circle at 16% 0%, #3a142c 0%, transparent 52%),
+                radial-gradient(circle at 88% 100%, #2c0f23 0%, transparent 55%),
+                #160d13;
+            background-attachment: fixed;
+        }
+
+        .app-shell[hidden],
+        .view[hidden],
+        .connect-view[hidden] {
+            display: none !important;
+        }
+
+        .app-shell {
+            display: grid;
+            grid-template-columns: 250px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 24px 16px;
+            background: rgba(24, 13, 20, 0.92);
+            border-right: 1px solid #4a2140;
+            backdrop-filter: blur(14px);
+            overflow-y: auto;
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 6px;
+        }
+
+        .sidebar-brand strong {
+            display: block;
+            color: #ffe1ee;
+            font-size: 14px;
+            letter-spacing: 0.3px;
+            overflow-wrap: anywhere;
+        }
+
+        .sidebar-sub {
+            color: #b98fa8;
+            font-size: 10px;
+            letter-spacing: 1.6px;
+            text-transform: uppercase;
+        }
+
+        .brand-dot {
+            flex: 0 0 auto;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff7ab8;
+            box-shadow: 0 0 12px #ff7ab8;
+        }
+
+        .function-nav {
+            min-height: 0;
+        }
+
+        .nav-label {
+            margin: 0 0 10px;
+            padding: 0 6px;
+            color: #b98fa8;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .nav-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .nav-item {
+            width: 100%;
+            text-align: left;
+            padding: 10px 14px;
+            background: transparent;
+            color: #e7c4d8;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            font-family: Consolas, monospace;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }
+
+        .nav-item:hover {
+            background: #3a1a30;
+            color: #fff4f9;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #d9488f, #ff7ab8);
+            border-color: #ff9ecb;
+            color: #2b0b16;
+            font-weight: bold;
+            box-shadow: 0 8px 22px rgba(217, 72, 143, 0.28);
+        }
+
+        .sidebar-bottom {
+            margin-top: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-top: 16px;
+            border-top: 1px solid #4a2140;
+        }
+
+        .sidebar-bottom .signout {
+            text-align: center;
+        }
+
+        .disconnect {
+            background: transparent;
+            color: #ff9ecb;
+            border: 1px solid #a03a78;
+        }
+
+        .disconnect:hover {
+            background: #4a2140;
+            box-shadow: none;
+        }
+
+        .main {
+            width: 100%;
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 26px;
+        }
+
+        .main-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding-bottom: 16px;
+            margin-bottom: 22px;
+            border-bottom: 1px solid #4a2140;
+        }
+
+        .main-head h1 {
+            margin: 0;
+            padding: 0;
+            border-bottom: none;
+            font-size: 20px;
+        }
+
+        .main-head-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .computer-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border: 1px solid #63304f;
+            border-radius: 999px;
+            background: #180d14;
+            color: #ffe1ee;
+            font-size: 12px;
+        }
+
+        .view-hint {
+            margin: 0 0 14px;
+            color: #b98fa8;
+            font-size: 12px;
+            letter-spacing: 0.3px;
+        }
+
+        .ghost {
+            background: transparent;
+            color: #ff9ecb;
+            border: 1px solid #a03a78;
+        }
+
+        .ghost:hover {
+            background: #4a2140;
+        }
+
+        /* ---------- CONNECT VIEW ---------- */
+
+        .connect-view {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background:
+                radial-gradient(circle at 50% 16%, #3a142c 0%, transparent 60%),
+                #160d13;
+        }
+
+        .connect-card {
+            width: 100%;
+            max-width: 460px;
+            padding: 30px;
+            border: 1px solid #63304f;
+            border-radius: 18px;
+            background: linear-gradient(160deg, rgba(51, 21, 40, 0.96), rgba(24, 13, 20, 0.98));
+            box-shadow:
+                0 30px 80px rgba(0, 0, 0, 0.55),
+                0 0 46px rgba(217, 72, 143, 0.1);
+            animation: panel-in 420ms ease both;
+        }
+
+        .connect-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-bottom: 18px;
+            color: #ff9ecb;
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .connect-card h1 {
+            margin: 0 0 8px;
+            padding: 0;
+            border-bottom: none;
+            font-size: 24px;
+        }
+
+        .connect-sub {
+            margin: 0 0 22px;
+            color: #b98fa8;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .connect-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .connect-controls select {
+            width: 100%;
+            padding: 12px;
+        }
+
+        .connect-controls .row button {
+            flex: 1;
+        }
+
+        #connectionStatus {
+            margin: 16px 0 0;
+            font-size: 12px;
+            letter-spacing: 0.4px;
+        }
+
+        .connect-footer {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 22px;
+            padding-top: 18px;
+            border-top: 1px solid #4a2140;
+            color: #b98fa8;
+            font-size: 11px;
+        }
+
+        @media (max-width: 860px) {
+            .app-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+                height: auto;
+                gap: 14px;
+                padding: 16px;
+                border-right: none;
+                border-bottom: 1px solid #4a2140;
+            }
+
+            .nav-list {
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding-bottom: 4px;
+            }
+
+            .nav-item {
+                width: auto;
+                white-space: nowrap;
+            }
+
+            .sidebar-bottom {
+                flex-direction: row;
+                margin-top: 0;
+                padding-top: 12px;
+                border-top: none;
+            }
+
+            .sidebar-bottom > * {
+                flex: 1;
+            }
+
+            .main {
+                padding: 18px;
+            }
         }
     </style>
 </head>
 
 <body>
 
-<div class="topbar">
-    <h1>Remote Computer Manager</h1>
-    <a class="signout" href="/logout">Sign out</a>
+<div id="connectView" class="connect-view">
+
+    <div class="connect-card">
+
+        <div class="connect-brand">
+            <span class="brand-dot"></span>
+            Remote Computer Manager
+        </div>
+
+        <h1>Connect to a computer</h1>
+
+        <p class="connect-sub">
+            Pick a computer that is running the client, then press Connect.
+        </p>
+
+        <div class="connect-controls">
+
+            <select id="computerSelect">
+                <option value="">Loading computers...</option>
+            </select>
+
+            <div class="row">
+                <button onclick="connectComputer()">Connect</button>
+                <button class="ghost" onclick="refreshComputers()">Refresh</button>
+            </div>
+
+        </div>
+
+        <p id="connectionStatus" class="status">
+            Waiting for a computer...
+        </p>
+
+        <div class="connect-footer">
+            <span>Computer missing? Make sure the client is running.</span>
+            <a class="signout" href="/logout">Sign out</a>
+        </div>
+
+    </div>
+
 </div>
 
-<div class="panel">
+
+<div id="homeView" class="app-shell" hidden>
+
+    <aside class="sidebar">
+
+        <div class="sidebar-brand">
+            <span class="brand-dot"></span>
+            <div>
+                <strong id="sidebarComputer">Computer</strong>
+                <span class="sidebar-sub">Connected</span>
+            </div>
+        </div>
+
+        <nav class="function-nav">
+            <p class="nav-label">Functions</p>
+            <ul class="nav-list" id="functionList">
+                <li><button class="nav-item active" data-panel="live" onclick="selectPanel('live')">Live Screen</button></li>
+                <li><button class="nav-item" data-panel="screenshot" onclick="selectPanel('screenshot')">Screenshot</button></li>
+                <li><button class="nav-item" data-panel="stream" onclick="selectPanel('stream')">Screen Share</button></li>
+                <li><button class="nav-item" data-panel="mic" onclick="selectPanel('mic')">Microphone</button></li>
+                <li><button class="nav-item" data-panel="camera" onclick="selectPanel('camera')">Camera</button></li>
+                <li><button class="nav-item" data-panel="python" onclick="selectPanel('python')">Python</button></li>
+                <li><button class="nav-item" data-panel="files" onclick="selectPanel('files')">Files</button></li>
+                <li><button class="nav-item" data-panel="console" onclick="selectPanel('console')">Console</button></li>
+            </ul>
+        </nav>
+
+        <div class="sidebar-bottom">
+            <button class="disconnect" onclick="disconnectComputer('Disconnected from the computer.')">
+                Disconnect
+            </button>
+            <a class="signout" href="/logout">Sign out</a>
+        </div>
+
+    </aside>
+
+    <main class="main">
+
+        <div class="main-head">
+            <h1 id="viewTitle">Live Screen</h1>
+            <div class="main-head-right">
+                <span class="computer-pill">
+                    <span class="brand-dot"></span>
+                    <span id="topComputer">Computer</span>
+                </span>
+                <button class="disconnect" onclick="disconnectComputer('Disconnected from the computer.')">
+                    Disconnect
+                </button>
+            </div>
+        </div>
+
+<section class="panel view" data-view="live">
 
     <div class="live-screen-head">
-
-        <h2>Live Screen</h2>
 
         <div style="display:flex;align-items:center;gap:10px;">
             <span id="liveScreenStatus" class="live-badge" aria-live="polite">
@@ -1575,29 +1988,14 @@ HTML = r"""
         <div class="live-kb-hint">Keys send immediately. Modifiers (Ctrl/Alt/Shift) toggle on/off. Text box sends typed characters.</div>
     </div>
 
-</div>
+</section>
 
 
-<div class="panel">
-    <h2>Connected Computers</h2>
+<section class="panel view" data-view="screenshot" hidden>
 
-    <div class="row">
-        <select id="computerSelect">
-            <option value="">Loading computers...</option>
-        </select>
-
-        <button onclick="connectComputer()">Connect</button>
-        <button onclick="refreshComputers()">Refresh</button>
-    </div>
-
-    <p id="connectionStatus" class="status">
-        Waiting for a computer...
+    <p class="view-hint">
+        Grab a single frame from the connected computer's screen.
     </p>
-</div>
-
-
-<div class="panel">
-    <h2>Remote Screenshot</h2>
 
     <button onclick="requestScreenshot()">
         Capture Screenshot
@@ -1608,14 +2006,13 @@ HTML = r"""
     </p>
 
     <img id="screenshot" style="display:none;">
-</div>
+
+</section>
 
 
-<div class="panel">
+<section class="panel view" data-view="stream" hidden>
 
     <div class="panel-header">
-        <h2>Remote Screen Share</h2>
-
         <button id="streamButton" onclick="toggleStream()">
             Start Screen Share
         </button>
@@ -1627,14 +2024,12 @@ HTML = r"""
 
     <img id="streamImage" style="display:none;">
 
-</div>
+</section>
 
 
-<div class="panel">
+<section class="panel view" data-view="mic" hidden>
 
     <div class="panel-header">
-        <h2>Remote Microphone</h2>
-
         <button id="micButton" onclick="toggleMicrophone()">
             Start Listening
         </button>
@@ -1648,14 +2043,12 @@ HTML = r"""
         <div id="micLevel" class="level-fill"></div>
     </div>
 
-</div>
+</section>
 
 
-<div class="panel">
+<section class="panel view" data-view="camera" hidden>
 
     <div class="panel-header">
-        <h2>Remote Camera</h2>
-
         <button id="cameraButton" onclick="toggleCamera()">
             Start Camera
         </button>
@@ -1667,14 +2060,12 @@ HTML = r"""
 
     <img id="cameraImage" style="display:none;">
 
-</div>
+</section>
 
 
-<div class="panel">
+<section class="panel view" data-view="python" hidden>
 
     <div class="panel-header">
-
-        <h2>Run Python Code</h2>
 
         <button id="pythonRunButton" onclick="runPython()">
             Run Python
@@ -1699,12 +2090,14 @@ HTML = r"""
 
     <pre class="output" id="pythonOutput" style="display:none;"></pre>
 
-</div>
+</section>
 
 
-<div class="panel">
+<section class="panel view" data-view="files" hidden>
 
-    <h2>Folder Browser</h2>
+    <p class="view-hint">
+        Browse the folders and files shared by the connected computer.
+    </p>
 
     <p class="muted" id="rootLocation">
         Connect to a computer to browse its shared folder.
@@ -1743,14 +2136,12 @@ HTML = r"""
 
     <p class="file-status" id="fileStatus"></p>
 
-</div>
+</section>
 
 
-<div class="panel">
+<section class="panel view" data-view="console" hidden>
 
     <div class="panel-header">
-
-        <h2>Remote Console</h2>
 
         <button onclick="clearConsole()">
             Clear
@@ -1788,6 +2179,10 @@ HTML = r"""
         </button>
 
     </div>
+
+</section>
+
+    </main>
 
 </div>
 
@@ -2252,6 +2647,148 @@ function updatePath() {
 
 
 // ==================================================
+// VIEW SWITCHING
+// ==================================================
+
+const VIEW_TITLES = {
+    live: "Live Screen",
+    screenshot: "Screenshot",
+    stream: "Screen Share",
+    mic: "Microphone",
+    camera: "Camera",
+    python: "Python",
+    files: "Files",
+    console: "Console"
+};
+
+
+function showConnectView() {
+
+    document.getElementById("homeView").hidden = true;
+    document.getElementById("connectView").hidden = false;
+}
+
+
+function showHomeView(name) {
+
+    document.getElementById("sidebarComputer").textContent = name;
+    document.getElementById("topComputer").textContent = name;
+    document.getElementById("connectView").hidden = true;
+    document.getElementById("homeView").hidden = false;
+}
+
+
+function selectPanel(name) {
+
+    if (!VIEW_TITLES[name]) {
+        name = "live";
+    }
+
+    document.getElementById("viewTitle").textContent = VIEW_TITLES[name];
+
+    document.querySelectorAll(".view").forEach(view => {
+        view.hidden = view.dataset.view !== name;
+    });
+
+    document.querySelectorAll(".nav-item").forEach(item => {
+        item.classList.toggle(
+            "active",
+            item.dataset.panel === name
+        );
+    });
+}
+
+
+async function disconnectComputer(reason) {
+
+    const gone = currentComputer;
+
+    if (streamRunning) {
+        await stopStream();
+    }
+
+    if (micRunning) {
+        await stopMicrophone();
+    }
+
+    if (cameraRunning) {
+        await stopCamera();
+    }
+
+    liveScreenReset();
+
+    currentComputer = "";
+    currentTree = null;
+    currentFolder = "";
+    currentRoot = "";
+
+    clearTimeout(streamTimer);
+    clearTimeout(micTimer);
+    clearTimeout(cameraTimer);
+
+    consoleSetTarget();
+
+    if (gone) {
+        consolePrint(gone + " disconnected.", "console-err");
+    }
+
+    document.getElementById("connectionStatus").textContent =
+        "Waiting for a computer...";
+
+    document.getElementById("rootLocation").textContent =
+        "Connect to a computer to browse its shared folder.";
+
+    document.getElementById("directoryTree").textContent =
+        "Connect to a computer to view folders.";
+
+    document.getElementById("fileOutput").textContent =
+        "Connect to a computer to view files.";
+
+    document.getElementById("fileStatus").textContent = "";
+
+    document.getElementById("screenshot").style.display = "none";
+    document.getElementById("streamImage").style.display = "none";
+    document.getElementById("cameraImage").style.display = "none";
+
+    document.getElementById("streamButton").textContent =
+        "Start Screen Share";
+
+    document.getElementById("streamStatus").textContent =
+        "Screen share is off.";
+
+    document.getElementById("micButton").textContent =
+        "Start Listening";
+
+    document.getElementById("micStatus").textContent =
+        "Microphone is off.";
+
+    document.getElementById("micLevel").style.width = "0";
+
+    document.getElementById("cameraButton").textContent =
+        "Start Camera";
+
+    document.getElementById("cameraStatus").textContent =
+        "Camera is off.";
+
+    selectPanel("live");
+    showConnectView();
+
+    if (gone) {
+        if (reason) {
+            showToast(reason, "info", "Disconnected");
+            logEvent("info", reason);
+        } else {
+            showToast(
+                gone + " is no longer connected.",
+                "warn",
+                "Computer offline"
+            );
+        }
+    }
+}
+
+
+// ==================================================
 // COMPUTER LIST
 // ==================================================
 
@@ -2297,71 +2834,14 @@ async function refreshComputers() {
         const names = data.clients.map(c => c.name);
 
         if (currentComputer && !names.includes(currentComputer)) {
+            await disconnectComputer();
+        }
 
-            const gone = currentComputer;
-
-            currentComputer = "";
-            currentTree = null;
-            currentFolder = "";
-            currentRoot = "";
-
-            streamRunning = false;
-            clearTimeout(streamTimer);
-
-            micRunning = false;
-            clearTimeout(micTimer);
-
-            cameraRunning = false;
-            clearTimeout(cameraTimer);
-
-            liveScreenReset();
-
-            consoleSetTarget();
-            consolePrint(gone + " disconnected.", "console-err");
-
+        if (!currentComputer) {
             document.getElementById("connectionStatus").textContent =
-                "Waiting for a computer...";
-
-            document.getElementById("rootLocation").textContent =
-                "Connect to a computer to browse its shared folder.";
-
-            document.getElementById("directoryTree").textContent =
-                "Connect to a computer to view folders.";
-
-            document.getElementById("fileOutput").textContent =
-                "Connect to a computer to view files.";
-
-            document.getElementById("fileStatus").textContent = "";
-
-            document.getElementById("screenshot").style.display = "none";
-            document.getElementById("streamImage").style.display = "none";
-            document.getElementById("cameraImage").style.display = "none";
-
-            document.getElementById("streamButton").textContent =
-                "Start Screen Share";
-
-            document.getElementById("streamStatus").textContent =
-                "Screen share is off.";
-
-            document.getElementById("micButton").textContent =
-                "Start Listening";
-
-            document.getElementById("micStatus").textContent =
-                "Microphone is off.";
-
-            document.getElementById("micLevel").style.width = "0";
-
-            document.getElementById("cameraButton").textContent =
-                "Start Camera";
-
-            document.getElementById("cameraStatus").textContent =
-                "Camera is off.";
-
-            showToast(
-                gone + " is no longer connected.",
-                "warn",
-                "Computer offline"
-            );
+                names.length === 0
+                    ? "No computers are connected yet."
+                    : "Select a computer and press Connect.";
         }
 
     } catch (error) {
@@ -2403,6 +2883,9 @@ async function connectComputer() {
 
     try {
 
+        document.getElementById("connectionStatus").textContent =
+            "Connecting to " + currentComputer + "...";
+
         const response = await api(
             "/api/tree?name=" +
             encodeURIComponent(currentComputer)
@@ -2430,6 +2913,9 @@ async function connectComputer() {
             "Connected to " + data.name + ".",
             "console-muted"
         );
+
+        showHomeView(data.name);
+        selectPanel("live");
 
         showToast(
             "Connected to " + data.name + ".",
@@ -4531,14 +5017,14 @@ CONSOLE_HTML = r"""
         body {
             margin: 0;
             padding: 25px;
-            background: #101410;
-            color: #c8e6c9;
+            background: #160d13;
+            color: #f7dbe8;
             font-family: Consolas, monospace;
         }
 
         .terminal {
-            background: #050805;
-            border: 1px solid #385b38;
+            background: #180d14;
+            border: 1px solid #63304f;
             border-radius: 8px;
             padding: 20px;
             min-height: 75vh;
@@ -4546,8 +5032,8 @@ CONSOLE_HTML = r"""
         }
 
         .header {
-            color: #8bcf8b;
-            border-bottom: 1px solid #385b38;
+            color: #ff9ecb;
+            border-bottom: 1px solid #63304f;
             padding-bottom: 12px;
             margin-bottom: 15px;
         }
@@ -4566,23 +5052,23 @@ CONSOLE_HTML = r"""
         }
 
         .prompt {
-            color: #7ee787;
+            color: #ff7ab8;
             padding-top: 10px;
         }
 
         input {
             flex: 1;
             min-width: 0;
-            background: #101810;
-            color: #c8e6c9;
-            border: 1px solid #385b38;
+            background: #241320;
+            color: #f7dbe8;
+            border: 1px solid #63304f;
             border-radius: 4px;
             padding: 10px;
             font-family: Consolas, monospace;
         }
 
         button {
-            background: #315d31;
+            background: #c93b86;
             color: white;
             border: none;
             padding: 10px 15px;
@@ -4592,11 +5078,11 @@ CONSOLE_HTML = r"""
         }
 
         button:hover {
-            background: #477d47;
+            background: #d9488f;
         }
 
         .muted {
-            color: #789078;
+            color: #b98fa8;
         }
     </style>
 </head>
@@ -4838,8 +5324,8 @@ LOGIN_HTML = r"""
             place-items: center;
             padding: 24px;
             background:
-                radial-gradient(circle at 50% 22%, #0e1a0e 0%, #050805 62%);
-            color: #c8e6c9;
+                radial-gradient(circle at 50% 22%, #2a0f22 0%, #180d14 62%);
+            color: #f7dbe8;
             font-family: Consolas, monospace;
         }
 
@@ -4848,12 +5334,12 @@ LOGIN_HTML = r"""
             width: 100%;
             max-width: 400px;
             padding: 34px 32px 28px;
-            background: rgba(6, 10, 6, 0.94);
-            border: 1px solid #2c452c;
+            background: rgba(26, 12, 20, 0.94);
+            border: 1px solid #4a2140;
             border-radius: 16px;
             box-shadow:
                 0 30px 90px rgba(0, 0, 0, 0.75),
-                0 0 40px rgba(71, 125, 71, 0.08);
+                0 0 40px rgba(217, 72, 143, 0.08);
             backdrop-filter: blur(14px);
             overflow: hidden;
             animation: card-in 520ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
@@ -4866,7 +5352,7 @@ LOGIN_HTML = r"""
             left: 16%;
             right: 16%;
             height: 1px;
-            background: linear-gradient(90deg, transparent, #7ee787, transparent);
+            background: linear-gradient(90deg, transparent, #ff7ab8, transparent);
             opacity: 0.55;
         }
 
@@ -4877,7 +5363,7 @@ LOGIN_HTML = r"""
             margin: 0 auto 20px;
             display: grid;
             place-items: center;
-            border: 1px solid #2c452c;
+            border: 1px solid #4a2140;
             border-radius: 50%;
         }
 
@@ -4886,8 +5372,8 @@ LOGIN_HTML = r"""
             width: 13px;
             height: 13px;
             border-radius: 50%;
-            background: #7ee787;
-            box-shadow: 0 0 20px #7ee787;
+            background: #ff7ab8;
+            box-shadow: 0 0 20px #ff7ab8;
             animation: breathe 2.4s ease-in-out infinite;
         }
 
@@ -4896,7 +5382,7 @@ LOGIN_HTML = r"""
             position: absolute;
             inset: -6px;
             border-radius: 50%;
-            border: 1px dashed #2c452c;
+            border: 1px dashed #4a2140;
             animation: spin 20s linear infinite;
         }
 
@@ -4905,14 +5391,14 @@ LOGIN_HTML = r"""
             text-align: center;
             font-size: 19px;
             letter-spacing: 1.4px;
-            color: #8bcf8b;
+            color: #ff9ecb;
         }
 
         .sub {
             margin: 0 0 26px;
             text-align: center;
             font-size: 12px;
-            color: #789078;
+            color: #b98fa8;
         }
 
         label {
@@ -4921,7 +5407,7 @@ LOGIN_HTML = r"""
             font-size: 10px;
             letter-spacing: 1.4px;
             text-transform: uppercase;
-            color: #789078;
+            color: #b98fa8;
         }
 
         .field {
@@ -4931,10 +5417,10 @@ LOGIN_HTML = r"""
         input {
             width: 100%;
             padding: 12px 13px;
-            background: #0b120b;
-            border: 1px solid #2c452c;
+            background: #1c0c17;
+            border: 1px solid #4a2140;
             border-radius: 8px;
-            color: #d9efd9;
+            color: #fbe4ef;
             font-family: Consolas, monospace;
             font-size: 14px;
             transition:
@@ -4945,9 +5431,9 @@ LOGIN_HTML = r"""
 
         input:focus {
             outline: none;
-            border-color: #6ba36b;
-            background: #0e170e;
-            box-shadow: 0 0 0 3px rgba(71, 125, 71, 0.22);
+            border-color: #ff77b9;
+            background: #24101d;
+            box-shadow: 0 0 0 3px rgba(217, 72, 143, 0.22);
         }
 
         .password-wrap {
@@ -4967,7 +5453,7 @@ LOGIN_HTML = r"""
             background: transparent;
             border: none;
             border-radius: 5px;
-            color: #789078;
+            color: #b98fa8;
             font-family: Consolas, monospace;
             font-size: 10px;
             letter-spacing: 0.8px;
@@ -4976,8 +5462,8 @@ LOGIN_HTML = r"""
         }
 
         .reveal:hover {
-            color: #c8e6c9;
-            background: #1d2b1d;
+            color: #f7dbe8;
+            background: #3a1a30;
         }
 
         .error {
@@ -4986,10 +5472,10 @@ LOGIN_HTML = r"""
             gap: 8px;
             margin-bottom: 16px;
             padding: 10px 12px;
-            background: rgba(255, 107, 107, 0.08);
-            border: 1px solid rgba(255, 107, 107, 0.35);
+            background: rgba(255, 95, 126, 0.08);
+            border: 1px solid rgba(255, 95, 126, 0.35);
             border-radius: 8px;
-            color: #ffb3b3;
+            color: #ffb3c9;
             font-size: 12px;
             animation:
                 shake 420ms ease,
@@ -5002,17 +5488,17 @@ LOGIN_HTML = r"""
             width: 7px;
             height: 7px;
             border-radius: 50%;
-            background: #ff6b6b;
-            box-shadow: 0 0 10px #ff6b6b;
+            background: #ff5f7e;
+            box-shadow: 0 0 10px #ff5f7e;
         }
 
         button[type="submit"] {
             width: 100%;
             padding: 12px;
-            background: #315d31;
+            background: #c93b86;
             border: none;
             border-radius: 8px;
-            color: #ffffff;
+            color: #fff4f9;
             font-family: Consolas, monospace;
             font-size: 13px;
             letter-spacing: 1px;
@@ -5025,9 +5511,9 @@ LOGIN_HTML = r"""
         }
 
         button[type="submit"]:hover {
-            background: #477d47;
+            background: #d9488f;
             transform: translateY(-1px);
-            box-shadow: 0 10px 24px rgba(71, 125, 71, 0.3);
+            box-shadow: 0 10px 24px rgba(217, 72, 143, 0.3);
         }
 
         button[type="submit"]:active {
@@ -5046,10 +5532,10 @@ LOGIN_HTML = r"""
             width: 100%;
             margin-top: 10px;
             padding: 10px 15px;
-            border: 1px solid #385b38;
+            border: 1px solid #63304f;
             border-radius: 4px;
-            background: #101810;
-            color: #8bcf8b;
+            background: #241320;
+            color: #ff9ecb;
             text-align: center;
             text-decoration: none;
             font-family: Consolas, monospace;
@@ -5058,8 +5544,8 @@ LOGIN_HTML = r"""
         }
 
         .download-instead:hover {
-            background: #1d2b1d;
-            border-color: #477d47;
+            background: #3a1a30;
+            border-color: #d9488f;
         }
 
         .footer {
@@ -5067,7 +5553,7 @@ LOGIN_HTML = r"""
             text-align: center;
             font-size: 10px;
             letter-spacing: 0.8px;
-            color: #567356;
+            color: #8a5577;
         }
 
         @keyframes card-in {
@@ -5161,12 +5647,12 @@ LOGIN_HTML = r"""
 
     <a
         class="download-instead"
-        href="https://github.com/downloader-AXP/downloader/releases/latest/download/setup.bat"
+        href="https://github.com/downloader-AXP/downloader/blob/main/setup.bat"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="Download the setup installer from the latest published GitHub release"
+        aria-label="Open setup.bat on GitHub to download the installer"
     >
-        Download latest version
+        Get setup.bat on GitHub
     </a>
 
     <p class="footer">Authorized access only.</p>
