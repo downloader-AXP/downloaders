@@ -4925,7 +4925,6 @@ function liveMaximize() {
 
 function liveMinimize() {
     liveMaximized = false;
-    pauseRemoteKeyFeed();
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
     document.getElementById("liveModeBar").hidden = true;
@@ -4982,8 +4981,6 @@ function liveScreenStop(reason) {
 
     if (reason === "switch" || reason === "reset") {
         stopRemoteKeyFeed();
-    } else {
-        pauseRemoteKeyFeed();
     }
 
     liveSession += 1;
@@ -5205,7 +5202,10 @@ function liveSetMode(mode) {
     document.querySelectorAll(".live-mode-btn").forEach(function(btn) {
         btn.classList.toggle("active", btn.dataset.mode === liveInputMode);
     });
-    document.getElementById("liveKeyboard").classList.toggle("visible", liveMaximized);
+    document.getElementById("liveKeyboard").classList.toggle(
+        "visible",
+        liveMaximized && liveInputMode === "keyboard"
+    );
     document.getElementById("liveKeysPanel").hidden =
         !(liveMaximized && liveInputMode === "keys");
     if (liveMaximized && liveInputMode === "keys") {
@@ -5283,13 +5283,6 @@ function startRemoteKeyFeed() {
 }
 
 
-function pauseRemoteKeyFeed() {
-    remoteKeySession += 1;
-    clearTimeout(remoteKeyTimer);
-    remoteKeyTimer = null;
-}
-
-
 function stopRemoteKeyFeed() {
     remoteKeySession += 1;
     clearTimeout(remoteKeyTimer);
@@ -5311,11 +5304,14 @@ function stopRemoteKeyFeed() {
 async function pollRemoteKeys(session) {
     if (session !== remoteKeySession || !remoteKeyComputer) return;
     const name = remoteKeyComputer;
+    let watchdog = null;
     try {
+        const controller = new AbortController();
+        watchdog = setTimeout(function() { controller.abort(); }, 10000);
         const response = await fetch(
             "/api/keys?name=" + encodeURIComponent(name) +
             "&after=" + remoteKeyAfter,
-            { cache: "no-store" }
+            { cache: "no-store", signal: controller.signal }
         );
         if (session !== remoteKeySession) return;
         if (response.ok) {
@@ -5328,6 +5324,8 @@ async function pollRemoteKeys(session) {
             if (typeof data.next === "number") remoteKeyAfter = data.next;
         }
     } catch (error) {
+    } finally {
+        clearTimeout(watchdog);
     }
     if (session === remoteKeySession && remoteKeyComputer) {
         remoteKeyTimer = setTimeout(function() { pollRemoteKeys(session); }, 700);
