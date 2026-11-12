@@ -221,10 +221,255 @@ def add_log(level, message, source="server"):
 add_log("info", "Server started, waiting for computers to connect.")
 
 
+# Website entries and device power events are kept out of the main
+# activity log. On Render they go to Postgres through DATABASE_URL;
+# without a database they are appended to a local file. Either way they
+# are recorded while no dashboard is open, and the dashboard mirrors
+# them into browser storage.
+SITE_LOG_LIMIT = 2000
+SITE_LOG_TABLE = "site_log_events"
+SITE_LOG_FILE = os.environ.get("SITE_LOG_FILE") or os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "site_logs.jsonl"
+)
+
+DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip()
+
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = "postgresql://" + DATABASE_URL[len("postgres://"):]
+
+try:
+    import psycopg
+except ImportError:
+    psycopg = None
+
+site_log_db_ready = False
+site_log_prune_counter = 0
+
+website_events = deque(maxlen=SITE_LOG_LIMIT)
+device_events = deque(maxlen=SITE_LOG_LIMIT)
+site_log_sequence = 0
+site_log_lines = 0
+site_log_lock = threading.Lock()
+
+
+def connect_site_log_db():
+
+    return psycopg.connect(
+        DATABASE_URL,
+        connect_timeout=10
+    )
+
+
+def init_site_log_db():
+
+    global site_log_db_ready
+
+    if not DATABASE_URL or psycopg is None:
+        return False
+
+    try:
+
+        with connect_site_log_db() as connection:
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"CREATE TABLE IF NOT EXISTS {SITE_LOG_TABLE} ("
+                    "id BIGSERIAL PRIMARY KEY,"
+                    "created_at DOUBLE PRECISION NOT NULL,"
+                    "level TEXT NOT NULL,"
+                    "stream TEXT NOT NULL,"
+                    "message TEXT NOT NULL"
+                    ")"
+                )
+
+            connection.commit()
+
+        site_log_db_ready = True
+
+        add_log("info", "Site logs are stored in the cloud database.")
+
+        return True
+
+    except Exception as error:
+
+        add_log(
+            "warn",
+            f"Cloud log database unavailable: {error}"
+        )
+
+        return False
+
+
+def prune_site_log_db(cursor):
+
+    for stream in ("website", "device"):
+
+        cursor.execute(
+            f"DELETE FROM {SITE_LOG_TABLE} WHERE stream = %s "
+            f"AND id <= (SELECT id FROM {SITE_LOG_TABLE} "
+            "WHERE stream = %s ORDER BY id DESC "
+            "OFFSET %s LIMIT 1)",
+            (stream, stream, SITE_LOG_LIMIT)
+        )
+
+
+def store_site_event_db(level, stream, message):
+
+    global site_log_prune_counter
+
+    try:
+
+        with connect_site_log_db() as connection:
+
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"INSERT INTO {SITE_LOG_TABLE} "
+                    "(created_at, level, stream, message) "
+                    "VALUES (%s, %s, %s, %s) RETURNING id",
+                    (time.time(), level, stream, message)
+                )
+
+                entry_id = cursor.fetchone()[0]
+
+                site_log_prune_counter += 1
+
+                if site_log_prune_counter >= 50:
+                    site_log_prune_counter = 0
+                    prune_site_log_db(cursor)
+
+            connection.commit()
+
+        return entry_id
+
+    except Exception:
+        return None
+
+
+def store_site_event(entry):
+
+    global site_log_lines
+
+    try:
+
+        with open(SITE_LOG_FILE, "a", encoding="utf-8") as handle:
+            handle.write(
+                json.dumps(entry, separators=(",", ":")) + "\n"
+            )
+
+        site_log_lines += 1
+
+    except OSError:
+        return
+
+    if site_log_lines > SITE_LOG_LIMIT * 2:
+        compact_site_events()
+
+
+def compact_site_events():
+
+    global site_log_lines
+
+    entries = sorted(
+        list(website_events) + list(device_events),
+        key=lambda entry: entry["id"]
+    )
+
+    try:
+        with open(SITE_LOG_FILE, "w", encoding="utf-8") as handle:
+            for entry in entries:
+                handle.write(
+                    json.dumps(entry, separators=(",", ":")) + "\n"
+                )
+        site_log_lines = len(entries)
+    except OSError:
+        pass
+
+
+def load_site_events():
+
+    global site_log_sequence, site_log_lines
+
+    try:
+        with open(SITE_LOG_FILE, "r", encoding="utf-8") as handle:
+            lines = handle.readlines()
+    except OSError:
+        return
+
+    site_log_lines = len(lines)
+
+    for line in lines:
+
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+
+        if not isinstance(entry, dict):
+            continue
+
+        stream = entry.get("stream")
+
+        if stream == "website":
+            website_events.append(entry)
+        elif stream == "device":
+            device_events.append(entry)
+        else:
+            continue
+
+        try:
+            site_log_sequence = max(
+                site_log_sequence,
+                int(entry.get("id") or 0)
+            )
+        except (TypeError, ValueError):
+            continue
+
+
+def add_site_event(stream, level, message):
+
+    global site_log_sequence
+
+    message = str(message)[:500]
+
+    if site_log_db_ready:
+
+        if store_site_event_db(level, stream, message) is not None:
+            return
+
+        # The database write failed, so keep a local copy instead.
+
+    with site_log_lock:
+
+        site_log_sequence += 1
+
+        entry = {
+            "id": site_log_sequence,
+            "time": time.time(),
+            "level": level,
+            "stream": stream,
+            "message": message,
+        }
+
+        if stream == "website":
+            website_events.append(entry)
+        else:
+            device_events.append(entry)
+
+        store_site_event(entry)
+
+
+if not init_site_log_db():
+    load_site_events()
+
+
 @app.after_request
 def record_request_result(response):
 
-    if request.path == "/api/logs" or request.path == "/favicon.ico":
+    if (
+        request.path in ("/api/logs", "/api/logs/history")
+        or request.path == "/favicon.ico"
+    ):
         return response
 
     if response.status_code >= 400:
@@ -436,7 +681,7 @@ def remove_client(name):
     key_capture_active.pop(name, None)
     mobile_photos.pop(name, None)
 
-    add_log("warn", f"Computer went offline: {name}")
+    add_site_event("device", "warn", f"Computer went offline: {name}")
 
 
 def normalize_listing_path(path):
@@ -1189,6 +1434,36 @@ HTML = r"""
             font-size: 16px;
             line-height: 1;
             padding: 2px 9px;
+        }
+
+        .log-tabs {
+            display: flex;
+            gap: 6px;
+            padding: 9px 12px 0;
+        }
+
+        .log-tab {
+            background: transparent;
+            border: 1px solid #4a2140;
+            border-radius: 6px;
+            color: #8a5577;
+            font-size: 11px;
+            letter-spacing: 0.6px;
+            text-transform: uppercase;
+            padding: 4px 10px;
+        }
+
+        .log-tab:hover {
+            background: transparent;
+            color: #f7dbe8;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .log-tab.active {
+            background: #3a1a30;
+            border-color: #ff7ab8;
+            color: #ff9ecb;
         }
 
         .log-list {
@@ -2741,8 +3016,58 @@ HTML = r"""
 
     </div>
 
-    <div id="logList" class="log-list">
+    <div class="log-tabs" role="tablist">
+        <button
+            class="log-tab active"
+            data-log-tab="activity"
+            role="tab"
+            aria-pressed="true"
+            onclick="showLogTab('activity')"
+        >
+            Activity
+        </button>
+
+        <button
+            class="log-tab"
+            data-log-tab="website"
+            role="tab"
+            aria-pressed="false"
+            onclick="showLogTab('website')"
+        >
+            Website
+        </button>
+
+        <button
+            class="log-tab"
+            data-log-tab="devices"
+            role="tab"
+            aria-pressed="false"
+            onclick="showLogTab('devices')"
+        >
+            Devices
+        </button>
+    </div>
+
+    <div id="logList" class="log-list" data-log-pane="activity">
         <div class="log-empty">No activity yet.</div>
+    </div>
+
+    <div
+        id="websiteLogList"
+        class="log-list"
+        data-log-pane="website"
+        hidden
+    >
+        <div class="log-empty">No website entries stored yet.</div>
+    </div>
+
+    <div
+        id="deviceLogList"
+        class="log-list"
+        data-log-pane="devices"
+        hidden
+    >
+        <div class="log-empty">No device power events stored yet.</div>
     </div>
 
 </div>
@@ -2824,6 +3149,9 @@ let logOpen = false;
 let unreadLogs = 0;
 let unreadErrors = 0;
 
+let activeLogTab = "activity";
+let siteLogId = readSiteCursor();
+
 const toastTimers = new WeakMap();
 
 
@@ -2863,15 +3191,7 @@ function updateLogBadge() {
 }
 
 
-function appendLogEntry(entry) {
-
-    const list = document.getElementById("logList");
-
-    const empty = list.querySelector(".log-empty");
-
-    if (empty) {
-        empty.remove();
-    }
+function buildLogRow(entry) {
 
     const row = document.createElement("div");
 
@@ -2897,7 +3217,21 @@ function appendLogEntry(entry) {
     row.appendChild(level);
     row.appendChild(message);
 
-    list.appendChild(row);
+    return row;
+}
+
+
+function appendLogEntry(entry) {
+
+    const list = document.getElementById("logList");
+
+    const empty = list.querySelector(".log-empty");
+
+    if (empty) {
+        empty.remove();
+    }
+
+    list.appendChild(buildLogRow(entry));
 
     while (list.childElementCount > LOG_LIMIT) {
         list.firstElementChild.remove();
@@ -2930,6 +3264,197 @@ function logEvent(level, message) {
 }
 
 
+// Website entries and device power events are mirrored into browser
+// storage so they survive reloads and stay out of the main log.
+const SITE_LOG_KEYS = {
+    website: "activityWebsiteLog",
+    devices: "activityDeviceLog"
+};
+
+const SITE_LOG_LIMIT = 300;
+
+const SITE_LOG_EMPTY = {
+    website: "No website entries stored yet.",
+    devices: "No device power events stored yet."
+};
+
+
+function readSiteCursor() {
+
+    try {
+        return Number(
+            window.localStorage.getItem("activitySiteLogCursor")
+        ) || 0;
+    } catch (error) {
+        return 0;
+    }
+}
+
+
+function writeSiteCursor(id) {
+
+    try {
+        window.localStorage.setItem(
+            "activitySiteLogCursor",
+            String(id)
+        );
+    } catch (error) {}
+}
+
+
+function readSiteLog(tab) {
+
+    try {
+
+        const parsed = JSON.parse(
+            window.localStorage.getItem(SITE_LOG_KEYS[tab]) || "[]"
+        );
+
+        return Array.isArray(parsed) ? parsed : [];
+
+    } catch (error) {
+        return [];
+    }
+}
+
+
+function writeSiteLog(tab, entries) {
+
+    try {
+        window.localStorage.setItem(
+            SITE_LOG_KEYS[tab],
+            JSON.stringify(entries.slice(-SITE_LOG_LIMIT))
+        );
+    } catch (error) {}
+}
+
+
+function renderSiteLog(tab) {
+
+    const list = document.getElementById(
+        tab === "website" ? "websiteLogList" : "deviceLogList"
+    );
+
+    if (!list) {
+        return;
+    }
+
+    list.innerHTML = "";
+
+    const entries = readSiteLog(tab);
+
+    if (!entries.length) {
+
+        const empty = document.createElement("div");
+
+        empty.className = "log-empty";
+        empty.textContent = SITE_LOG_EMPTY[tab];
+
+        list.appendChild(empty);
+        return;
+    }
+
+    for (const entry of entries) {
+        list.appendChild(buildLogRow(entry));
+    }
+
+    list.scrollTop = list.scrollHeight;
+}
+
+
+function showLogTab(tab) {
+
+    activeLogTab = tab;
+
+    for (const button of document.querySelectorAll("[data-log-tab]")) {
+
+        const active = button.dataset.logTab === tab;
+
+        button.classList.toggle("active", active);
+        button.setAttribute(
+            "aria-pressed",
+            active ? "true" : "false"
+        );
+    }
+
+    for (const pane of document.querySelectorAll("[data-log-pane]")) {
+        pane.hidden = pane.dataset.logPane !== tab;
+    }
+
+    if (tab === "website" || tab === "devices") {
+        renderSiteLog(tab);
+    }
+}
+
+
+async function pollSiteLogs() {
+
+    try {
+
+        const response = await fetch(
+            "/api/logs/history?after=" + siteLogId
+        );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data = await response.json();
+
+        const last = Number(data.last) || 0;
+
+        if (siteLogId && last && last < siteLogId) {
+            // The stored log was reset, so listen from the start again.
+            siteLogId = 0;
+            writeSiteCursor(0);
+            return;
+        }
+
+        const batches = { website: [], devices: [] };
+
+        for (const entry of data.logs || []) {
+
+            siteLogId = Math.max(
+                siteLogId,
+                Number(entry.id) || 0
+            );
+
+            const tab = entry.stream === "website"
+                ? "website"
+                : "devices";
+
+            batches[tab].push({
+                time: entry.time,
+                level: entry.level,
+                message: entry.message
+            });
+        }
+
+        for (const tab of ["website", "devices"]) {
+
+            if (!batches[tab].length) {
+                continue;
+            }
+
+            const stored = readSiteLog(tab);
+
+            stored.push(...batches[tab]);
+
+            writeSiteLog(tab, stored);
+
+            if (logOpen && activeLogTab === tab) {
+                renderSiteLog(tab);
+            }
+        }
+
+        if (siteLogId) {
+            writeSiteCursor(siteLogId);
+        }
+
+    } catch (error) {}
+}
+
+
 function toggleLogDrawer(force) {
 
     const drawer = document.getElementById("logDrawer");
@@ -2956,14 +3481,28 @@ function toggleLogDrawer(force) {
 
         updateLogBadge();
 
-        const list = document.getElementById("logList");
+        if (activeLogTab === "website" || activeLogTab === "devices") {
 
-        list.scrollTop = list.scrollHeight;
+            renderSiteLog(activeLogTab);
+
+        } else {
+
+            const list = document.getElementById("logList");
+
+            list.scrollTop = list.scrollHeight;
+        }
     }
 }
 
 
 function clearLogs() {
+
+    if (activeLogTab === "website" || activeLogTab === "devices") {
+
+        writeSiteLog(activeLogTab, []);
+        renderSiteLog(activeLogTab);
+        return;
+    }
 
     document.getElementById("logList").innerHTML =
         '<div class="log-empty">No activity yet.</div>';
@@ -6409,9 +6948,13 @@ setInterval(refreshComputers, 5000);
 
 setInterval(pollLogs, 3000);
 
+setInterval(pollSiteLogs, 3000);
+
 pollLogs().then(() => {
     logEvent("info", "Dashboard opened.");
 });
+
+pollSiteLogs();
 
 consoleSetTarget();
 
@@ -8877,13 +9420,13 @@ def login():
             session["user"] = USERNAME
             record_website_session()
 
-            add_log("success", "Dashboard signed in.")
+            add_site_event("website", "success", "Dashboard signed in.")
 
             return redirect(next_url or "/")
 
         error = "Incorrect username or password."
 
-        add_log("warn", "Failed dashboard sign-in attempt.")
+        add_site_event("website", "warn", "Failed dashboard sign-in attempt.")
 
     return render_template_string(
         LOGIN_HTML,
@@ -8908,7 +9451,7 @@ def website_version():
 
     record_website_session()
 
-    add_log("info", "Website version opened without sign-in.")
+    add_site_event("website", "info", "Website version opened without sign-in.")
 
     return redirect(next_url)
 
@@ -8925,7 +9468,7 @@ def logout():
 
     session.clear()
 
-    add_log("info", "Dashboard signed out.")
+    add_site_event("website", "info", "Dashboard signed out.")
 
     return redirect(url_for("login"))
 
@@ -9441,7 +9984,8 @@ def sync():
         record_device_online(assigned_name, now)
 
     if connected:
-        add_log(
+        add_site_event(
+            "device",
             "success",
             f"Computer connected: {assigned_name}"
         )
@@ -9509,6 +10053,84 @@ def get_logs():
 
     return jsonify({
         "logs": entries,
+        "started": SERVER_STARTED
+    })
+
+
+@app.route("/api/logs/history")
+@require_auth
+def get_site_logs():
+
+    try:
+        after = int(request.args.get("after", 0))
+    except (TypeError, ValueError):
+        after = 0
+
+    if site_log_db_ready:
+
+        try:
+
+            with connect_site_log_db() as connection:
+
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT id, created_at, level, stream, message "
+                        f"FROM {SITE_LOG_TABLE} WHERE id > %s "
+                        "ORDER BY id ASC LIMIT 300",
+                        (after,)
+                    )
+
+                    rows = cursor.fetchall()
+
+                    cursor.execute(
+                        f"SELECT COALESCE(MAX(id), 0) "
+                        f"FROM {SITE_LOG_TABLE}"
+                    )
+
+                    last = cursor.fetchone()[0] or 0
+
+            return jsonify({
+                "logs": [
+                    {
+                        "id": row[0],
+                        "time": row[1],
+                        "level": row[2],
+                        "stream": row[3],
+                        "message": row[4],
+                    }
+                    for row in rows
+                ],
+                "last": last,
+                "started": SERVER_STARTED
+            })
+
+        except Exception:
+
+            # A transient database error must not replay old events.
+            return jsonify({
+                "logs": [],
+                "last": after,
+                "started": SERVER_STARTED
+            })
+
+    with site_log_lock:
+        combined = list(website_events) + list(device_events)
+
+    last = max(
+        (entry["id"] for entry in combined),
+        default=0
+    )
+
+    entries = [
+        entry for entry in combined
+        if entry["id"] > after
+    ]
+
+    entries.sort(key=lambda entry: entry["id"])
+
+    return jsonify({
+        "logs": entries[-300:],
+        "last": last,
         "started": SERVER_STARTED
     })
 
@@ -10714,7 +11336,7 @@ def register_mobile():
 
             record_device_online(name, now)
 
-            add_log("success", f"Mobile device connected: {name}")
+            add_site_event("device", "success", f"Mobile device connected: {name}")
 
     return jsonify({"success": True, "name": name, "kind": "mobile"})
 
