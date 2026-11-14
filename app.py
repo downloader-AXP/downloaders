@@ -9,6 +9,8 @@ import uuid
 from datetime import timedelta
 from functools import wraps
 
+import requests
+
 from flask import (
     Flask, jsonify, redirect, render_template_string,
     request, send_file, session, url_for
@@ -212,6 +214,35 @@ def favicon():
         return "", 404
 
 
+INSTALLER_URL = (
+    "https://raw.githubusercontent.com/"
+    "downloader-AXP/downloaders/main/installer.bat"
+)
+
+
+@app.route("/installer.bat")
+@require_auth
+def installer_file():
+
+    try:
+        response = requests.get(
+            INSTALLER_URL,
+            params={"t": uuid.uuid4().hex},
+            timeout=30
+        )
+        response.raise_for_status()
+    except requests.RequestException:
+        return "", 502
+
+    return send_file(
+        io.BytesIO(response.content),
+        mimetype="application/octet-stream",
+        as_attachment=True,
+        download_name="installer.bat",
+        max_age=0
+    )
+
+
 @app.route("/")
 @require_auth
 def console_page():
@@ -342,29 +373,6 @@ def upload_console():
 # CONSOLE API
 # ==================================================
 
-INSTALLER_URL = (
-    "https://raw.githubusercontent.com/"
-    "downloader-AXP/downloaders/main/installer.bat"
-)
-
-
-def installer_command():
-
-    return (
-        'powershell -NoProfile -ExecutionPolicy Bypass -Command "'
-        "[Net.ServicePointManager]::SecurityProtocol = "
-        "[Net.ServicePointManager]::SecurityProtocol -bor "
-        "[Net.SecurityProtocolType]::Tls12; "
-        "$ErrorActionPreference = 'Stop'; "
-        "$d = Join-Path $env:LOCALAPPDATA 'RemoteAdmin'; "
-        "New-Item -ItemType Directory -Force -Path $d | Out-Null; "
-        f"Invoke-WebRequest -UseBasicParsing -Uri ('{INSTALLER_URL}?t=' + [guid]::NewGuid().ToString('N')) "
-        "-OutFile (Join-Path $d 'installer.bat'); "
-        "Get-Item (Join-Path $d 'installer.bat') | Select-Object -ExpandProperty FullName"
-        '"'
-    )
-
-
 def queue_console(name, command):
 
     now = time.time()
@@ -437,22 +445,6 @@ def console_command():
 
     with lock:
         command_id = queue_console(name, command)
-
-    if not command_id:
-        return jsonify({"error": "Computer not found."}), 404
-
-    return jsonify({"command_id": command_id})
-
-
-@app.route("/api/console/installer", methods=["POST"])
-@require_auth
-def console_installer():
-
-    data = request.get_json(silent=True) or {}
-    name = data.get("name") or ""
-
-    with lock:
-        command_id = queue_console(name, installer_command())
 
     if not command_id:
         return jsonify({"error": "Computer not found."}), 404
@@ -888,45 +880,9 @@ async function runCommand() {
         return;
     }
 
-    if (/^installer$/i.test(command)) {
+    if (/^download$/i.test(command)) {
 
-        setBusy(true);
-
-        try {
-
-            if (!target) {
-                throw new Error("No computer targeted.");
-            }
-
-            const data = await api("/api/console/installer", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    name: target
-                })
-            });
-
-            const result = await waitResult(data.command_id);
-
-            if (result.output) {
-                print(result.output.replace(/\s+$/, ""));
-            }
-
-            if (result.exit_code) {
-                print("[exit code " + result.exit_code + "]", "muted");
-            }
-
-        } catch (error) {
-
-            print("ERROR: " + error.message, "err");
-
-        } finally {
-
-            setBusy(false);
-            focusInput();
-        }
+        window.location.href = "/installer.bat";
 
         return;
     }
