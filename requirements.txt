@@ -1,5 +1,2 @@
 Flask>=3.1,<4
 gunicorn
-requests
-Pillow
-psycopg[binary]>=3.2
